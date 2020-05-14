@@ -21,7 +21,7 @@
 
 #include <stdint.h>
 #include "utils.h"
-#include "variants.h"
+//#include "variants.h"
 #include "bwt.h"
 #include "bntseq.h"
 #include "bitmap.h"
@@ -64,7 +64,9 @@ typedef struct{
     uint32_t *var_seqs;// var_seqs[2i] = variant pre seq; var_seqs[2i+1] = variant index 
     all_var_t *var;*/
 } idx_t;
-idx_t *idx_restore(const char *prefix);
-void idx_destroy(idx_t *idx);
+
+
+idx_t *fmidx_restore(const char *prefix);
+void fmidx_destroy(idx_t *idx);
 
 #endif
