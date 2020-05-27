@@ -52,7 +52,7 @@ typedef struct{
     int l_seq;  
     uint8_t *seq, *rseq, *qual, *apos;    
     */
-    qseq_t *qseq;
+    //qseq_t *qseq;
     char *name, *comment;
     int l_seq, n_ambiguous, l_trim3, l_trim5;  
     uint8_t *seq, *rseq, *qual, *apos, *target;    

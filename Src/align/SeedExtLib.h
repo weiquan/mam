@@ -51,6 +51,7 @@ KSORT_INIT(tuple5_t, tuple5_t, ks_lt_tuple5)
 #define MAX_CANDI_POS ( (__MAX_CANDI_POS)< 100000 ? 100000:(__MAX_CANDI_POS) )
 #define THRES_ALN_OUT 20
 
+long getFileSize(char *fn);
 struct SubBuf *InitIdxsArry(struct FileName *fn, struct JmpMod **out_jmp, struct CapIfo *cap, struct ExtBlck out_blck[], struct StackTree *sTree, struct SubBuf *sub);
 void initStackTree(struct StackTree *sTree);
 
