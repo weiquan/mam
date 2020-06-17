@@ -248,32 +248,32 @@ int bwt_match_exact(const bwt_t *bwt, int len, const ubyte_t *str, bwtint_t *sa_
 }
 int bwt_match_exact_alt(const bwt_t *bwt, int len, const ubyte_t *str, bwtint_t *k0, bwtint_t *l0)
 {
-   int i;
-    int ret =1;
+  int i;
+  int ret =1;
 	bwtint_t k, l, ok, ol;
 	k = *k0; l = *l0;
 	for (i = len - 1; i >= 0; --i) {
-		ubyte_t c = str[i];
-		if (c > 3){             
-            ret = 0; // there is an N here. no match
-            break;
-        }
-        bwt_2occ(bwt, k - 1, l, c, &ok, &ol);
-		k = bwt->L2[c] + ok + 1;
-		l = bwt->L2[c] + ol;
-        
-        if (k > l) {
-            ret = 0; // no match
-	        break;
-        }
+    ubyte_t c = str[i];
+    if (c > 3){             
+      ret = 0; // there is an N here. no match
+      break;
     }
+    bwt_2occ(bwt, k - 1, l, c, &ok, &ol);
+    k = bwt->L2[c] + ok + 1;
+    l = bwt->L2[c] + ol;
+      
+    if (k > l) {
+        ret = 0; // no match
+      break;
+    }
+  }
 
-    if(ret ){
-	    *k0 = k; *l0 = l;
-        return l - k + 1;
-    }else{
-        return ret;
-    }
+  if(ret ){
+    *k0 = k; *l0 = l;
+      return l - k + 1;
+  }else{
+      return ret;
+  }
 
 
 }

@@ -7,86 +7,41 @@
 #define ROOT_PATH "../Index/"
 void setFileName(FileName *f, const char* prefix)
 {
-	char (*pf)[LEN_FILE_NAME];
-	
-	int i;
-	char ch[5];
-  f->numidxfiles = 6;
 	if(NULL == f){
 	    perror("error:[NULL == f]");
 	    exit(1);
 	}
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-    //if (strcmp(in_fname, jmpmod) == 0) {
-    if(NULL == (f->jmpmod  = (char*)malloc(LEN_FILE_NAME * sizeof(char)))){
-        //perror("error：[malloc(NUM_FILE_NAME*NUM_EXT*LEN_FILE_NAME*sizeof(char))]");
-        
-
-        exit(1);
-    }
-    sprintf(f->jmpmod, "%s_jmpmod.txt", prefix);
-
-        //return;
-    //}
-
-
-
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    if(NULL == (pf = (char(*)[LEN_FILE_NAME])malloc((NUM_EXT+1)*LEN_FILE_NAME * sizeof(char)))){
-        perror("error：[malloc(NUM_FILE_NAME*NUM_EXT*LEN_FILE_NAME*sizeof(char))]");
-        exit(1);
-    }
-
-    f->seedidx = pf; 
-    //NUM_EXT个输出文件seedidx_i.txt
-
-
-    for(i=0;i<NUM_EXT+1; i++){
-        sprintf(f->seedidx[i], "%s_seedidx_%d.txt", prefix, i);
-    }
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    if(NULL == (f->comfile = (char(*)[LEN_FILE_NAME])malloc(NUM_EXT*LEN_FILE_NAME * sizeof(char)))){
-        perror("error：[malloc(NUM_FILE_NAME*NUM_EXT*LEN_FILE_NAME*sizeof(char))]");
-        exit(1);
-    }
-    //f->comfile = pf; 
-    //NUM_EXT个输出文件seedidx_i.txt
-    for(i=0;i<NUM_EXT; i++){
-        sprintf(f->comfile[i], "%s_comfile_%d.txt", prefix, i);
-    }
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-    if(NULL == (pf = (char(*)[LEN_FILE_NAME])malloc(NUM_FILES * (NUM_EXT+1) * LEN_FILE_NAME * sizeof(char)))){
-        perror("error：[malloc(NUM_FILE_NAME*NUM_EXT*LEN_FILE_NAME*sizeof(char))]");
-        exit(1);
-    }
-    f->capidx  = pf + 0*NUM_EXT; 
-    f->relat   = pf + 1*NUM_EXT; 
-    f->smbwt   = pf + 2*NUM_EXT; 
-    f->nxtpnt  = pf + 3*NUM_EXT; 
-    f->nxtflg  = pf + 4*NUM_EXT; 
-    f->extidx   = pf + 5*NUM_EXT; 
-
-    //NUM_EXT个输出文件CapIdxFile_i.txt
-    for(i=0;i<NUM_EXT+1; i++){
-      sprintf(f->capidx[i], "%s_capidx_%d.txt", prefix, i);
-      sprintf(f->relat[i],  "%s_relat_%d.txt", prefix, i);
-      sprintf(f->smbwt[i],  "%s_smbwt_%d.txt", prefix, i);
-      sprintf(f->nxtpnt[i], "%s_nxtpnt_%d.txt", prefix, i);
-      sprintf(f->nxtflg[i], "%s_nxtflg_%d.txt", prefix, i);
-      sprintf(f->extidx[i], "%s_extidx_%d.txt", prefix, i);
-    }
-
-
-    return;
-
+  int i;
+ 
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  f->jmpmod  = (char*)malloc(LEN_FILE_NAME * sizeof(char));
+  sprintf(f->jmpmod, "%s_jmpmod.txt", prefix);
+  f->seedidx = (char(*)[LEN_FILE_NAME])malloc((NUM_EXT+1)*LEN_FILE_NAME * sizeof(char)); 
+  for(i=0;i<NUM_EXT+1; i++){
+    sprintf(f->seedidx[i], "%s_seedidx_%d.txt", prefix, i);
+  }
+  f->comfile = (char(*)[LEN_FILE_NAME])malloc(NUM_EXT*LEN_FILE_NAME * sizeof(char));
+  for(i=0;i<NUM_EXT; i++){
+    sprintf(f->comfile[i], "%s_comfile_%d.txt", prefix, i);
+  }
+  f->numidxfiles = 6;
+  char (*pf)[LEN_FILE_NAME] = (char(*)[LEN_FILE_NAME])malloc(NUM_FILES * (NUM_EXT+1) * LEN_FILE_NAME * sizeof(char));
+  f->capidx  = pf + 0*NUM_EXT; 
+  f->relat   = pf + 1*NUM_EXT; 
+  f->smbwt   = pf + 2*NUM_EXT; 
+  f->nxtpnt  = pf + 3*NUM_EXT; 
+  f->nxtflg  = pf + 4*NUM_EXT; 
+  f->extidx   = pf + 5*NUM_EXT; 
+  //NUM_EXT个输出文件CapIdxFile_i.txt
+  for(i=0;i<NUM_EXT+1; i++){
+    sprintf(f->capidx[i], "%s_capidx_%d.txt", prefix, i);
+    sprintf(f->relat[i],  "%s_relat_%d.txt", prefix, i);
+    sprintf(f->smbwt[i],  "%s_smbwt_%d.txt", prefix, i);
+    sprintf(f->nxtpnt[i], "%s_nxtpnt_%d.txt", prefix, i);
+    sprintf(f->nxtflg[i], "%s_nxtflg_%d.txt", prefix, i);
+    sprintf(f->extidx[i], "%s_extidx_%d.txt", prefix, i);
+  }
+  return;
 }
 
 void getFileName(char *in_fname, FileName *f){

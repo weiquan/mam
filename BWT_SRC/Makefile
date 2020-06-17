@@ -7,7 +7,7 @@ DFLAGS=		-DFILE_OFFSET_BITS=64#-DHAVE_PTHREAD #-DDEBUG#-D_FILE_OFFSET_BITS=64
 SRC= 		utils.c malloc_wrap.c bwt.c bwtio.c is.c\
 			kstring.c bntseq.c bwtmisc.c\
 		bwt_gen.c QSufSort.c\
-		bitmap.c lookup.c query.c setFileName.c
+		bitmap.c lookup.c query.c setFileName.c rbwt_alt.c
 PROG=		index aln gen_seed aln_debug test_index test_aln
 INCLUDES=	
 LIBS=		-lm -lz
