@@ -137,7 +137,7 @@ void SubBuf_init(struct SubBuf *sub_buf);
 int gen_jmpidx(int n, uint32_t cur_seedidx[][2], uint32_t* jump_idx, uint8_t *mod_idx, uint32_t *out_buf, int n_ext, idx_t *fm_idx);
 void seedidx_open(struct  FileName *f, uint32_t (*sidx)[2], uint64_t len_seedidx[],uint32_t exti,FILE *fpw[]);
 void gen_relat(uint32_t bgn,  uint32_t num, uint32_t num_ext, struct SubBuf *sub_buf, idx_t *idx);
-void gen_nxt_cap(struct SubBuf *subBuf,uint32_t *jmp_idx, uint8_t *jmp_mod,uint32_t *cap_pos,idx_t *fm_idx);
+void gen_nxt_cap(struct SubBuf *subBuf,int n_jmp, uint32_t *jmp_idx, int n_mod, uint8_t *jmp_mod,uint32_t *cap_pos,idx_t *fm_idx);
 void comFile(struct FileName *rf, struct FileName *wf);
 uint64_t getFileSize(const char *file);
 
@@ -152,6 +152,16 @@ uint32_t get_bwt_size(uint32_t n_data);
 
 
 
+int __test_sort(int n, const uint32_t *sort_seq)
+{
+  int i;
+  for(i = 1; i <n; ++i ){
+    if(sort_seq[i] <= sort_seq[i-1]) {
+      return i;
+    } 
+  }
+  return -1;
+}
 void log_sub(struct SubBuf *sub)
 { 
   int i, j;
@@ -295,6 +305,9 @@ int build_hier_idx(idx_t *idx, const char* prefix)
   bwtint_t max_relat = 0;
   int exti;
   for(exti= 0; exti < num_ext; ++exti){
+
+
+    int tot_relat = 0;
     sub->len_capidx = 0;	
     cap[0].relat = 0; 
     cap[0].smbwt = 0; 
@@ -309,23 +322,33 @@ int build_hier_idx(idx_t *idx, const char* prefix)
     FILE *fp_nxtflg = xopen(f->nxtflg[exti],"w");
     FILE *fp_capidx = xopen(f->capidx[exti],"w");
 
+    uint32_t l_seedidx = out_buf[0];
+    fprintf(stderr, "[%s]:  %u, fn_relat[%d] = %s, l_seedidx = %d\n", __func__, __LINE__, exti, f->relat[exti], l_seedidx);
+    fwrite(&l_seedidx, sizeof(uint32_t), 1, fp_relat);
+
+
     fprintf(stderr, "[%s]:  open seedidx finish!\n", __func__);
     bwtint_t bgn, end, num;
-    fprintf(stderr, "[%s]:  %u, out_buf[0] = %d, max_buf_size = %u\n", __func__, __LINE__, out_buf[0], max_buf_size);
+    //fprintf(stderr, "[%s]:  %u, out_buf[0] = %d, max_buf_size = %u\n", __func__, __LINE__, out_buf[0], max_buf_size);
     gen_jmpidx(len_seedidx[exti+1], nxt_seedidx, jmp_idx, mod_idx, out_buf, exti+1, idx);
-    fprintf(stderr, "[%s]:  %u, ext_num = %d, out_buf[0] = %d, max_buf_size = %u\n", __func__, __LINE__, exti, out_buf[0], max_buf_size);
+    //fprintf(stderr, "[%s]:  %u, ext_num = %d, out_buf[0] = %d, max_buf_size = %u\n", __func__, __LINE__, exti, out_buf[0], max_buf_size);
+
     bwtint_t si;
-    uint32_t l_seedidx = out_buf[0];
     for(si = 0; si < l_seedidx; ++si){
       bgn = cur_seedidx[si][0];
       num = cur_seedidx[si][1];
-      end = bgn + num-1; 
+      end = bgn + num-1;
+      if(num > IS_SMLSIZ) {
+        fprintf(stderr, "[%s]:  %u, num = %u > %u.\n",__func__,  __LINE__, num, IS_SMLSIZ);
+      
+      } 
       if(num <= IS_SMLSIZ){ continue; } 
       fprintf(stderr, "[%s]:  %u, generate relation array for left-seqs and right-seqs info.\n",__func__,  __LINE__);
       fprintf(stderr, "[%s]:  %u, bgn = %u, end = %u.\n",__func__,  __LINE__, bgn, end);
       gen_relat(bgn, num, exti, sub, idx);  
       bwtint_t bg, ed, relat_len;           
       if(sub->num_relat >max_relat) max_relat = sub->num_relat;
+      /*  
       if(sub->num_relat <= 0xFF)	{
         uint8_t *buf_8 = sub->buf_8;
         bg = 0; 
@@ -375,9 +398,28 @@ int build_hier_idx(idx_t *idx, const char* prefix)
         fwrite(sub->R2rel,sizeof(uint32_t),sub->num_seqR+1,fp_relat);
         relat_len = sub->num_relat+sub->num_seqL+sub->num_seqR+2;
       }
+      */
+      fwrite(&bgn, sizeof(uint32_t), 1, fp_relat);
+      fwrite(&num, sizeof(uint32_t), 1, fp_relat);
+      int x = sub->num_seqL +1;
+      fwrite(&x, sizeof(uint32_t), 1,fp_relat);
+      fwrite(sub->L2rel,sizeof(uint32_t), x, fp_relat);
+      x = sub->num_seqR +1;
+      fwrite(&x, sizeof(uint32_t), 1,fp_relat);
+      fwrite(sub->R2rel,sizeof(uint32_t), x, fp_relat);
+      fwrite(&tot_relat,sizeof(uint32_t), 1,fp_relat);
+      fwrite(&sub->num_relat,sizeof(uint32_t), 1,fp_relat);
+      fwrite(sub->relat,sizeof(uint32_t),sub->num_relat,fp_relat);
+      tot_relat += sub->num_relat;
+      relat_len = sub->num_relat+sub->num_seqL+sub->num_seqR+2;
+
       sub->num_ext = exti;	
       fprintf(stderr, "[%s]:  %u, generate next generation info.\n", __func__, __LINE__);
-      gen_nxt_cap(sub, jmp_idx, mod_idx, cap_pos, idx);
+      gen_nxt_cap(sub, sIdx->n_jmp, jmp_idx, sIdx->n_mod, mod_idx, cap_pos, idx);
+      fwrite(sub->nxt_idx,sizeof(uint32_t),sub->num_relat, fp_relat);
+      fwrite(sub->nxt_flg,sizeof(uint8_t), sub->num_relat, fp_relat);
+
+
       uint8_t ch_buf[5], row;  
       fprintf(stderr, "[%s]:  %u, generate rbwt.\n", __func__, __LINE__);
       if(sub->num_seqL > MIN_BWT_SIZE) {
@@ -385,7 +427,7 @@ int build_hier_idx(idx_t *idx, const char* prefix)
         buldSmBwt(sub,0); //0生成左Bwt，1生成右Bwt
         //test_smbwt(sub, 0);
         uint32_t len_bwtL = (sub->num_seqL+1)/2*8; 
-      fprintf(stderr, "generate next generation info.\n", __LINE__);
+        fprintf(stderr, "generate next generation info.\n", __LINE__);
         fwrite(sub->bwt_seqL,sizeof(uint8_t),len_bwtL,fp_smbwt);
         uint32_t len_sumL = get_bwt_size(sub->num_seqL)-len_bwtL; 		
         if(len_sumL > 0){
@@ -394,10 +436,20 @@ int build_hier_idx(idx_t *idx, const char* prefix)
           fwrite(sub->bwt_sumL,sizeof(uint8_t), len_sumL,fp_smbwt);
         }
         */
+        if(__test_sort(sub->num_seqL , sub->sortL) > 0){
+          fprintf(stderr, "[%s:%u]: seq %u wrong!\n", __func__, __LINE__, i);
+          int ii;
+          for(ii = 0; ii < sub->num_seqL; ++ii) {
+            fprintf(stderr, "[%u]: %u!\n", ii, sub->sortL[ii]); 
+          } 
+          exit(1);
+        }
+
         rbwt_t *rbwt = rbwt_bwt_build(sub->num_seqL, 16, sub->sortL, sub->seqL_buf, sub->seqR_buf);
         rbwt_bwt_dump(rbwt, fp_smbwt);
         rbwt_bwt_destroy(rbwt);
       } else{
+        /*  
         for(row = 0; row < sub->num_seqL; ++row){
           uint32_t buf = sub->sortL[row]; 
           ch_buf[0] = (uint8_t )((buf>>24)&0xFF);
@@ -406,6 +458,7 @@ int build_hier_idx(idx_t *idx, const char* prefix)
           ch_buf[3] = (uint8_t )((buf)&0xFF);
           fwrite(ch_buf,sizeof(uint8_t),4,fp_smbwt);
         } 
+        */
       //log_seqs(fm_idx, sidx[0], sidx[0]+sidx[1], exti);
       }
       if(sub->num_seqR > MIN_BWT_SIZE) {
@@ -421,10 +474,19 @@ int build_hier_idx(idx_t *idx, const char* prefix)
           fwrite(sub->bwt_sumR,sizeof(uint8_t), len_sumR,fp_smbwt);
         }
         */
+        if(__test_sort(sub->num_seqR , sub->sortR) > 0){
+          fprintf(stderr, "[%s:%u]: seq %u wrong!\n", __func__, __LINE__, i);
+          int ii;
+          for(ii = 0; ii < sub->num_seqL; ++ii) {
+            fprintf(stderr, "[%u]: %u!\n", ii, sub->sortL[ii]); 
+          }
+          exit(1);
+        }
         rbwt_t *rbwt = rbwt_bwt_build(sub->num_seqR, 16, sub->sortR, sub->seqL_buf, sub->seqR_buf);
         rbwt_bwt_dump(rbwt, fp_smbwt);
         rbwt_bwt_destroy(rbwt);
       } else{
+        /*  
         for(row = 0; row < sub->num_seqR; ++row){
           uint32_t buf = sub->sortR[row]; 
           ch_buf[0] = (uint8_t )((buf>>24)&0xFF);
@@ -433,9 +495,9 @@ int build_hier_idx(idx_t *idx, const char* prefix)
           ch_buf[3] = (uint8_t )((buf)&0xFF);
           fwrite(ch_buf,sizeof(uint8_t),4,fp_smbwt);
         } 
+        */
       }
-      fwrite(sub->nxt_idx,sizeof(uint32_t),sub->num_relat, fp_nxtpnt);
-      fwrite(sub->nxt_flg,sizeof(uint8_t), sub->num_relat, fp_nxtflg);
+
       cap[0].num_seqL  = sub->num_seqL;
       cap[0].num_seqR  = sub->num_seqR;
       cap[0].num_relat = sub->num_relat;
@@ -689,7 +751,7 @@ int gen_jmpidx(int n_seeds, uint32_t seedidx[][2], uint32_t* jump_idx, uint8_t *
         if(seedidx[row][1] > max_rep) max_rep = seedidx[row][1];
         bg = seedidx[row][0];
         num = seedidx[row][1];
-        __check_seedidx(bg, num, 20 + 32* exti,fm_idx);
+        //__check_seedidx(bg, num, 20 + 32* exti,fm_idx);
         if(num <= IS_SMLSIZ){ continue;}  
         if(exti == 0) {
             if(num <= IS_SMLSIZ * NUM_SCALE){ continue;}  
@@ -1134,9 +1196,11 @@ void gen_relat(uint32_t bg, uint32_t num, uint32_t num_ext, struct SubBuf *sub, 
       //fprintf(stderr, "[RSEQ]: seq = %u, %u, %u\n",sub->seqR_buf[bg_ri][0], sub->idxR[row_r][0], sub->idxR[row_r][1]);
       //__log_sortL(idx, bg+bg_ri, bg+ed_ri); 
       ++row_r;
+      
+      //if(0) {
       if(__check_idx(idx, bg+bg_ri, bg+ed_ri, 20 + 32*num_ext+16) != 0) {
         fprintf(stderr, "[%s]:  error in line %u!\n", __func__, __LINE__); 
-        //__log_sortR(idx, k, l, num_ext);
+        __log_sortR(idx, k, l, num_ext);
         exit(1); 
       }
     }
@@ -1182,7 +1246,7 @@ void gen_relat(uint32_t bg, uint32_t num, uint32_t num_ext, struct SubBuf *sub, 
 
 
 
-
+  /*  
   uint32_t (*relat_buf)[2] = sub->seqL_buf;
   uint32_t *relat = sub->relat;
   uint32_t *L2rel = sub->L2rel;
@@ -1208,6 +1272,7 @@ void gen_relat(uint32_t bg, uint32_t num, uint32_t num_ext, struct SubBuf *sub, 
     num++; 
   } 
   R2rel[j] = sub->num_relat;
+  */
   //log_sub(sub); 
   return;
 }
@@ -1378,12 +1443,22 @@ void buldSmBwt(struct SubBuf *sub,int flg){
  *  Description: convert suffix array interval [bgn, end] to local index id 
  * =====================================================================================
  */
-uint32_t sai_to_local_id(uint32_t *jmp_idx, uint8_t *mod_idx, uint32_t bgn, uint32_t end)
+uint32_t sai_to_local_id(int n_jmp, uint32_t *jmp_idx, int n_mod, uint8_t *mod_idx, uint32_t bgn, uint32_t end)
 {
   bwtint_t mod_bg, mod_ed, sai_r, i; 
+  if(bgn/256 > n_jmp) {
+    fprintf(stderr, "[%s:%u]: bgn/256(%u) > n_jmp(%u)!\n", __func__, __LINE__, bgn/256, n_jmp);
+    exit(1); 
+  }
   mod_bg = jmp_idx[bgn/256];
   mod_ed = jmp_idx[(bgn/256)+1];
   sai_r = bgn%256;
+  if(mod_ed > n_mod) {
+    fprintf(stderr, "[%s:%u]: mod_ed(%u) > n_mod(%u)!\n", __func__, __LINE__, mod_ed, n_mod);
+    exit(1); 
+ 
+  
+  }
   for(i = mod_bg; i < mod_ed; i++){
     if(sai_r == mod_idx[i]){
       break;
@@ -1392,9 +1467,166 @@ uint32_t sai_to_local_id(uint32_t *jmp_idx, uint8_t *mod_idx, uint32_t bgn, uint
   if(i == mod_ed){ return -1; }
   return i;
 }
-void gen_nxt_cap(struct SubBuf *subBuf,uint32_t *jmp_idx, uint8_t *mod_idx,uint32_t *cap_pos, idx_t *fm_idx)
+uint32_t aln_mam(int l_seq, uint8_t *seq, int s_bg, int s_ed, bwtint_t *bg, bwtint_t *ed, idx_t *idx, int max_loc)
 {
-  uint32_t  i, j,	bgn, end, num, i_r, seq, pos, row, local_id;
+  int64_t i, j;
+  uint32_t k = *bg;
+  uint32_t l = *ed;
+  if(k + max_loc > l) {
+    return 1; 
+  }
+  uint32_t lid = sai_to_local_id(idx->n_jmp, idx->jmp_idx, idx->n_mod, idx->mod_idx, k, l);
+  int exti = 0;
+  hidx_t *lidx = idx->hier_idx[exti]+lid;
+  while(k + max_loc < l && s_bg > 16 && s_ed+16 <l_seq ) { 
+    uint32_t k0 = 0, l0 = lidx->bwt0->n_seqs, n0;
+    n0 = rbwt_exact_match(lidx->bwt0, lidx->bwt0->n_rot, idx->cnt_table, 16, seq+s_bg-16, &k0, &l0);
+    uint32_t k1 = 0, l1 = lidx->bwt0->n_seqs, n1;
+    n1 = rbwt_exact_match(lidx->bwt1, lidx->bwt1->n_rot, idx->cnt_table, 16, seq+s_ed, &k1, &l1);
+    if(n0 !=1 || n1 != 1) {
+      fprintf(stderr, "[%s:%lu]: n0 = %d, n1 = %d\n", __func__, __LINE__, n0, n1); 
+      exit(1); 
+    }
+    for(i = k0; i < l0; ++i){
+      uint32_t bg, ed;
+      bg = lidx->L2rel[i];
+      ed = lidx->L2rel[i+1];
+      for(j = bg; j < ed; ++j) {
+        if(lidx->relat[j] == k1) {
+          break;
+        } 
+      }
+      if(j == ed) {
+        lid = (uint32_t)-1; 
+      } else {
+        lid = lidx->nxt_idx[j]; 
+        lidx = idx->hier_idx[exti]+lid;
+        k = lidx->bgn;
+        l = k + lidx->num;
+        s_bg -= 16;
+        s_ed += 16;
+      } 
+    }
+    exti++; 
+  }
+}
+uint32_t aln_mem(int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed, idx_t *idx, int max_loc)
+{
+  int64_t i, j;
+  uint32_t k = *bg;
+  uint32_t l = *ed;
+  uint32_t s_bg = *s_k;
+  uint32_t s_ed = *s_l;
+  if(k + max_loc > l) {
+    return l - k; 
+  }
+  uint32_t lid = sai_to_local_id(idx->n_jmp, idx->jmp_idx, idx->n_mod, idx->mod_idx, k, l);
+  int exti = 0;
+  int nxt_flg = 0;
+  while(s_bg >= 16 && s_ed+16 <l_seq ) { 
+    hidx_t *lidx = idx->hier_idx[exti]+lid;
+    k = lidx->bgn;
+    l = k + lidx->num-1;
+    if(exti >= 4 || k + max_loc > l) { break; }
+#ifdef DEBUG 
+        uint32_t kk = 0, ll = idx->bwt->seq_len;
+        bwt_match_exact_alt(idx->bwt, s_ed - s_bg, seq+s_bg, &kk, &ll);
+        if(k != kk || l != ll) {
+          fprintf(stderr, "[%s:%u]: exti = %u, lid = %d, (%u, %u) != (%u, %u)\n", __func__, __LINE__, exti, lid, k, l, kk, ll); 
+          exit(1); 
+        }
+#endif
+
+
+    uint32_t k0 = 0, l0 = lidx->bwt0->n_seqs, n0 = 0;
+    n0 = rbwt_exact_match(lidx->bwt0, lidx->bwt0->n_rot, idx->cnt_table, 16, seq+s_bg-16, &k0, &l0);
+    uint32_t k1 = 0, l1 = lidx->bwt1->n_seqs, n1 = 0;
+    n1 = rbwt_exact_match(lidx->bwt1, lidx->bwt1->n_rot, idx->cnt_table, 16, seq+s_ed, &k1, &l1);
+    if(n0 !=1 || n1 != 1) {
+      if(n0 != 1) {
+        uint8_t *seq_buf = calloc(lidx->bwt0->n_seqs, 16*sizeof(uint8_t));
+        rbwt_bwt_to_seqs(lidx->bwt0, lidx->bwt0->n_rot, seq_buf, idx->cnt_table);
+        int ii, jj;
+        for(jj = 0; jj < 16; ++jj) {
+          fprintf(stderr, "%u\t", seq[s_bg-16+jj]);
+        }
+
+        fprintf(stderr, "\n");
+        for(ii = 0; ii < lidx->bwt0->n_seqs; ++ii) {
+          for(jj = 0; jj < 16; ++jj) {
+            fprintf(stderr, "%u\t", seq_buf[ii*16+jj]);
+          }
+          
+          fprintf(stderr, "\n");
+        }
+        __log_sortL(idx, k, l);
+        
+        free(seq_buf);
+      } else if(n1 != 1) {
+        uint8_t *seq_buf = calloc(lidx->bwt1->n_seqs, 16*sizeof(uint8_t));
+        rbwt_bwt_to_seqs(lidx->bwt1, lidx->bwt1->n_rot, seq_buf, idx->cnt_table);
+        int ii, jj;
+        for(jj = 0; jj < 16; ++jj) {
+          fprintf(stderr, "%u\t", seq[s_ed+jj]);
+        }
+
+        fprintf(stderr, "\n");
+        for(ii = 0; ii < lidx->bwt1->n_seqs; ++ii) {
+          for(jj = 0; jj < 16; ++jj) {
+            fprintf(stderr, "%u\t", seq_buf[ii*16+jj]);
+          }
+          
+          fprintf(stderr, "\n");
+        }
+         
+        __log_sortR(idx, k, l, exti);
+      
+        free(seq_buf);
+      }
+      
+      
+      fprintf(stderr, "[%s:%lu]: n0 = %d, n1 = %d\n", __func__, __LINE__, n0, n1); 
+      exit(1); 
+    }
+    for(i = k0; i < l0; ++i){
+      uint32_t bg, ed;
+      bg = lidx->L2rel[i];
+      ed = lidx->L2rel[i+1];
+      //pairing lseq and rseq [todo: use binary search]
+      for(j = bg; j < ed; ++j) {
+        if(lidx->relat[j] == k1) {
+          break;
+        } 
+      }
+      if(j == ed) {
+        lid = (uint32_t)-1;
+        fprintf(stderr, "[%s:%u]: error!!!\n", __func__, __LINE__);
+        exit(1); 
+      }
+      lid = lidx->nxt_idx[j];
+      nxt_flg = lidx->nxt_flg[j];
+      s_bg -= 16;
+      s_ed += 16;
+      
+      if(nxt_flg <= IS_SMLSIZ) {
+        k = lid;
+        l = lid + nxt_flg-1;
+        goto end;
+      } 
+    }
+    exti++; 
+  }
+end:
+  *bg = k;
+  *ed = l;
+  *s_k = s_bg;
+  *s_l = s_ed;
+  return l - k;  
+}
+
+void gen_nxt_cap(struct SubBuf *subBuf,int n_jmp, uint32_t *jmp_idx, int n_mod, uint8_t *mod_idx,uint32_t *cap_pos, idx_t *fm_idx)
+{
+  uint32_t  i, j,	k, bgn, end, num, i_r, seq, pos, row, local_id;
   uint32_t buf_idx[5];
   struct SubBuf *sub = subBuf;
   sub->num_pos = 0;
@@ -1404,8 +1636,13 @@ void gen_nxt_cap(struct SubBuf *subBuf,uint32_t *jmp_idx, uint8_t *mod_idx,uint3
 
     for(j=bgn; j<end; j++){
       sub->seqL_idxR[j][0] = sub->sortL[i];
+      k = sub->relat[j];
+      sub->seqL_idxR[j][1] = sub->idxR[k][0];
+      sub->seqL_idxR[j][2] = sub->idxR[k][1];
+
     }
   }
+
   for(i=0; i<sub->num_seqR; i++){
     bgn = sub->R2rel[i];
     end = sub->R2rel[i+1];
@@ -1415,6 +1652,7 @@ void gen_nxt_cap(struct SubBuf *subBuf,uint32_t *jmp_idx, uint8_t *mod_idx,uint3
       sub->seqL_idxR[j][2] = sub->idxR[i][1];
     }
   }
+
   fprintf(stderr, "[%s]:  %u, num_seqL = %u, num_seqR = %d, num_relat = %d\n",__func__,  __LINE__, sub->num_seqL, sub->num_seqR, sub->num_relat);	
   for(i=0;i<sub->num_relat;i++){
     seq = sub->seqL_idxR[i][0]; // seq of lseq
@@ -1496,41 +1734,48 @@ void gen_nxt_cap(struct SubBuf *subBuf,uint32_t *jmp_idx, uint8_t *mod_idx,uint3
   for(i=0;i<sub->num_relat;i++){
     bgn = sub->relat_sai[i][0];
     end = sub->relat_sai[i][1];
-    num = end - bgn + 1;
+    num = end+1 - bgn;
+    /*  
     if(num==1){
       pos = bwt_sa(fm_idx->bwt, bgn);
       sub->nxt_idx[i] = pos;
       sub->nxt_flg[i] = num;
-      continue;
-    } else if(num <= IS_SMLSIZ){
+   
+    } else 
+    */
+    if(num <= IS_SMLSIZ){
       sub->nxt_idx[i] = bgn;           
       sub->nxt_flg[i] = num;
-      continue;
-    }
   
-    local_id = sai_to_local_id(jmp_idx, mod_idx, bgn, end);
-    /*  
-    bgn_q = jmp_idx[bgn/256];
-    end_q = jmp_idx[(bgn/256)+1];
-    i_r = bgn%256;
-    for(local_id=bgn_q; local_id<end_q; local_id++){
-      if(i_r == mod_idx[local_id]){
-        break;
+    } else{
+      if(sub->num_ext == 4){
+        sub->nxt_idx[i] = bgn;           
+      } else { 
+        local_id = sai_to_local_id(n_jmp, jmp_idx, n_mod, mod_idx, bgn, end);
+        /*  
+        bgn_q = jmp_idx[bgn/256];
+        end_q = jmp_idx[(bgn/256)+1];
+        i_r = bgn%256;
+        for(local_id=bgn_q; local_id<end_q; local_id++){
+          if(i_r == mod_idx[local_id]){
+            break;
+          }
+        }
+        */
+        if(local_id == end){
+            fprintf(stderr,"[repeat_num = %u]: no local_id!\n", sub->num_ext);
+            fprintf(stderr,"bg_idx, ed_idx= %u, %u!\n", bgn, end);
+            fprintf(stderr,"bgn_q, end_q= %u, %u!\n", jmp_idx[bgn/256], jmp_idx[bgn/256+1]);
+            exit(1); 
+        }
+        sub->nxt_idx[i] = local_id; //指向下一级CapIdx[]的行号
+      }
+      if(num < 255){
+        sub->nxt_flg[i] = (uint8_t)num ; //指向CapIdx[]的类型
+      }else{
+        sub->nxt_flg[i] = 0xFF ;
       }
     }
-    */
-    if(local_id == end){
-        fprintf(stderr,"[repeat_num = %u]: no local_id!\n", sub->num_ext);
-        fprintf(stderr,"bg_idx, ed_idx= %u, %u!\n", bgn, end);
-        fprintf(stderr,"bgn_q, end_q= %u, %u!\n", jmp_idx[bgn/256], jmp_idx[bgn/256+1]);
-        exit(1); 
-    }
-    sub->nxt_idx[i] = local_id; //指向下一级CapIdx[]的行号
-		if(num < 255){
-			sub->nxt_flg[i] = (uint8_t)num ; //指向CapIdx[]的类型
- 		}else{
-			sub->nxt_flg[i] = 0xFF ;
-		}
   } // End : for(i=0;i<len_relat;i++)
 	return;
 }

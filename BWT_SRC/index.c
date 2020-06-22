@@ -123,6 +123,96 @@ idx_t *fbwt_fmidx_restore(idx_t *idx, const char *prefix)
   idx->fastmap = lkt_restore(fn0); 
   return idx;
 }
+idx_t *fbwt_hier_idx_restore(idx_t *idx, const char *prefix)
+{
+  int i, j, x;
+  int n_ext = 5;
+  //idx->hier_idx = (hidx_t **)calloc(n_ext, sizeof(hidx_t *)); 
+  char fn[128];
+  //restore sai to local index
+  sprintf(fn, "%s_jmpmod.txt", prefix);
+  FILE *fp_jmp = xopen(fn, "rb"); 
+  fread(&idx->n_jmp, sizeof(uint32_t), 1, fp_jmp);
+  fread(&idx->n_mod, sizeof(uint32_t), 1, fp_jmp);
+  fread(&idx->max_buf, sizeof(uint32_t), 1, fp_jmp);
+  idx->jmp_idx = calloc(idx->n_jmp, sizeof(uint32_t));
+  idx->mod_idx = calloc(idx->n_mod, sizeof(uint8_t));
+  fread(idx->jmp_idx, sizeof(uint32_t), idx->n_jmp, fp_jmp);
+  fread(idx->mod_idx, sizeof(uint8_t) , idx->n_mod, fp_jmp);  
+  err_fclose(fp_jmp);
+  for(i = 0; i < n_ext; ++i) {
+    sprintf(fn, "%s_relat_%u.txt", prefix, i);
+    FILE *fp_relat = xopen(fn, "rb"); 
+    sprintf(fn, "%s_smbwt_%u.txt", prefix, i);
+    FILE *fp_smbwt = xopen(fn, "rb"); 
+
+    int n_local_idx = 0, n; 
+    fread(&n_local_idx, sizeof(uint32_t), 1, fp_relat);
+    idx->n_hier[i] = n_local_idx; 
+    idx->hier_idx[i] = calloc(n_local_idx, sizeof(hidx_t)); 
+    hidx_t *hidx = idx->hier_idx[i];
+    for(j = 0; j < n_local_idx; ++j) {
+      fread(&hidx[j].bgn, sizeof(uint32_t), 1, fp_relat);
+      fread(&hidx[j].num, sizeof(uint32_t), 1, fp_relat);
+      //fprintf(stderr, "bgn = %u, num = %u\n", hidx[j].bgn, hidx[j].num);
+      fread(&n, sizeof(uint32_t), 1, fp_relat);
+
+      //fprintf(stderr, "n_L = %u\n", n);
+      hidx[j].n_L = n;
+      hidx[j].L2rel = calloc(n, sizeof(uint32_t));
+      fread(hidx[j].L2rel,sizeof(uint32_t), n, fp_relat);
+      fread(&n, sizeof(uint32_t), 1, fp_relat);
+      //fprintf(stderr, "n_R = %u\n", n);
+      hidx[j].n_R = n;
+      hidx[j].R2rel = calloc(n, sizeof(uint32_t));
+      fread(hidx[j].R2rel,sizeof(uint32_t), n, fp_relat);
+      fread(&n, sizeof(uint32_t), 1, fp_relat);
+      hidx[j].relat_bg = n;
+      fread(&n, sizeof(uint32_t), 1, fp_relat);
+      hidx[j].n_relat = n;
+      //fprintf(stderr, "n_relat = %u\n", n);
+      hidx[j].relat = calloc(n, sizeof(uint32_t));
+      fread(hidx[j].relat, sizeof(uint32_t), n, fp_relat);
+      hidx[j].nxt_idx = calloc(n, sizeof(uint32_t));
+      fread(hidx[j].nxt_idx, sizeof(uint32_t), n, fp_relat);
+      hidx[j].nxt_flg = calloc(n, sizeof(uint8_t));
+      fread(hidx[j].nxt_flg, sizeof(uint8_t), n, fp_relat);
+      
+      hidx[j].bwt0 = rbwt_bwt_restore(fp_smbwt);
+      hidx[j].bwt1 = rbwt_bwt_restore(fp_smbwt);
+    
+    }
+    err_fclose(fp_relat);
+    err_fclose(fp_smbwt);
+  } 
+
+  return idx;
+}
+void fbwt_hier_idx_destroy(idx_t *idx, const char *prefix)
+{
+  int i, j, x;
+  int n_ext = 5;
+  //idx->hier_idx = (hidx_t **)calloc(n_ext, sizeof(hidx_t *)); 
+  for(i = 0; i < n_ext; ++i) {
+    char fn[128];
+    int n_local_idx = 0, n; 
+
+    idx->hier_idx[i] = calloc(n_local_idx, sizeof(hidx_t)); 
+    hidx_t *hidx = idx->hier_idx[i];
+    for(j = 0; j < hidx->n; ++j) {
+      free(hidx[j].L2rel);
+      free(hidx[j].R2rel);
+      free(hidx[j].relat);
+      free(hidx[j].nxt_idx);
+      free(hidx[j].nxt_flg);
+    }
+    free(hidx);
+  } 
+}
+
+
+
+
 void fbwt_fmidx_destroy(idx_t *idx)
 {
     if(idx->fastmap != NULL ) lkt_destroy(idx->fastmap);
@@ -1073,8 +1163,6 @@ int fbwt_rbwt_build(idx_t *idx)
   idx->n_rot = LEN_EXT;
   idx->cnt_table = calloc(256, sizeof(uint32_t));
   rbwt_gen_cnt_table(idx->cnt_table);
- 
-  
 }
 
 

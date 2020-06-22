@@ -23,6 +23,7 @@
 #define __set_bwt2(bwt, l, c) ((bwt)[(l)>>1] |= (c)<<((~(l)&1)<<2))
 #define __get_bwt2(bwt, l) ((bwt)[(l)>>1] >> ((~(l)&1)<<2)&15)
 #define __get_nt(seq, i) (((seq)>>((i)*2))&0x3)
+#define MIN_BWT_SIZE 16
 #define MIN_BWT_SIZE 0
 #define NO_BWT_SUM_SIZE 64
 #define NT_SIZE 4

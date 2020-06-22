@@ -32,10 +32,18 @@ typedef struct{
 } ext_t;
 typedef struct{
   int n;
-  int n_L, n_R, n_rel;
+  int n_L, n_R, n_relat;
+  int relat_bg;//unused?
+  uint32_t bgn, num;
+  uint32_t *L2rel;
+  uint32_t *R2rel;
+  uint32_t *relat;
+  uint32_t *nxt_idx;
+  uint8_t *nxt_flg;
+  rbwt_t *bwt0, *bwt1;
   //setbwt0, setbwt1
   //relation array
-} local_idx_t;
+} hidx_t;
 typedef struct{
   //global FM-index
   uint32_t fastmap_correct[12];
@@ -46,13 +54,15 @@ typedef struct{
   //
   int n_rot;
   uint32_t *cnt_table; 
-  rbwt_t *rbwt; 
+  //rbwt_t *rbwt; 
   
   //local FM-index
-  int n_hier;
-  local_idx_t **hier_idx;  
-
-  
+  int n_hier[5];
+  hidx_t *hier_idx[5];  
+  //sai to local FM-index, only used in generation 0
+  int n_jmp, n_mod, max_buf;
+  uint32_t *jmp_idx;  
+  uint8_t *mod_idx; 
   
   /* snp-aware seed index */
   int n_pmap;
@@ -90,4 +100,6 @@ typedef struct{
 idx_t *fmidx_restore(const char *prefix);
 void fmidx_destroy(idx_t *idx);
 
+uint32_t aln_mam(int l_seq, uint8_t *seq, int s_bg, int s_ed, bwtint_t *bg, bwtint_t *ed, idx_t *idx, int max_loc);
+uint32_t aln_mem(int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed, idx_t *idx, int max_loc);
 #endif

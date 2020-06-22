@@ -89,7 +89,7 @@ rbwt_t *rbwt_bwt_init(int n_seqs, int l_seq)
   rbwt->n_rot = l_seq;
   for(rot = 0; rot < l_seq; ++rot){
     rbwt->rbwt[rot].bwt = calloc((n_seqs*BITS_PER_NT+NT_PER_BYTE-1)/NT_PER_BYTE, sizeof(uint8_t)); 
-    rbwt->rbwt[rot].Occ = calloc(n_seqs/OCC_INTV+1, 4*sizeof(uint32_t)); 
+    rbwt->rbwt[rot].Occ = calloc((n_seqs+OCC_INTV-1)/OCC_INTV, 4*sizeof(uint32_t)); 
   }
   return rbwt;
 }

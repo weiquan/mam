@@ -33,7 +33,7 @@ void setFileName(FileName *f, const char* prefix)
   f->nxtflg  = pf + 4*NUM_EXT; 
   f->extidx   = pf + 5*NUM_EXT; 
   //NUM_EXT个输出文件CapIdxFile_i.txt
-  for(i=0;i<NUM_EXT+1; i++){
+  for(i=0;i<NUM_EXT; i++){
     sprintf(f->capidx[i], "%s_capidx_%d.txt", prefix, i);
     sprintf(f->relat[i],  "%s_relat_%d.txt", prefix, i);
     sprintf(f->smbwt[i],  "%s_smbwt_%d.txt", prefix, i);
