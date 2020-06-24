@@ -121,38 +121,35 @@ int check_exact_match(idx_t *idx)
  */
 int aln_core(char *prefix)
 {
-  idx_t idx;
-  fbwt_fmidx_restore(&idx, prefix); 
-  fbwt_hier_idx_restore(&idx, prefix);
-  //check_hier_idx(&idx);
-  idx.cnt_table = calloc(256, sizeof(uint32_t));
-  rbwt_gen_cnt_table(idx.cnt_table); 
+  idx_t *idx = fbwt_fmidx_restore(prefix); 
+  fbwt_hier_idx_restore(idx, prefix);
+  //check_hier_idx(idx);
   bwtint_t i, j;
-  for(i = 200; i < idx.bwt->seq_len-512; ++i){
+  for(i = 200; i < idx->bwt->seq_len-512; ++i){
     uint8_t seq[256] = {}; 
     for(j = 0; j < 256; ++j) {
-      seq[j] = __get_pac(idx.pac, i+j); 
+      seq[j] = __get_pac(idx->pac, i+j); 
     }
 
     uint32_t init_bg = 16*5; 
     uint32_t init_ed = init_bg + 20; 
-    uint32_t k = 0, l = idx.bwt->seq_len;
-    bwt_match_exact_alt(idx.bwt, init_ed-init_bg, seq+init_bg, &k, &l);
+    uint32_t k = 0, l = idx->bwt->seq_len;
+    bwt_match_exact_alt(idx->bwt, init_ed-init_bg, seq+init_bg, &k, &l);
     fprintf(stderr, "[%s:%u]: pos = %u, init = [%u, %u) (k, l)= (%u, %u)\n", __func__, __LINE__, i, init_bg, init_ed, k, l); 
-    aln_mem(256, seq, &init_bg, &init_ed, &k, &l, &idx, IS_SMLSIZ);       
+    aln_mem(idx, 256, seq, &init_bg, &init_ed, &k, &l, IS_SMLSIZ);       
     fprintf(stderr, "[%s:%u]: pos = %u, init = [%u, %u) (k, l)= (%u, %u)\n", __func__, __LINE__, i, init_bg, init_ed, k, l); 
-    uint32_t k1 = 0, l1 = idx.bwt->seq_len;   
-    bwt_match_exact_alt(idx.bwt, init_ed-init_bg, seq+init_bg, &k1, &l1);
+    uint32_t k1 = 0, l1 = idx->bwt->seq_len;   
+    bwt_match_exact_alt(idx->bwt, init_ed-init_bg, seq+init_bg, &k1, &l1);
     if(k1 != k || l1 != l) {
       fprintf(stderr, "[%s:%u]: pos = %u, init = [%u, %u) (k, l)= (%u, %u) != (%u, %u)!\n", __func__, __LINE__, i, init_bg, init_ed, k, l, k1, l1); 
       exit(1); 
     }
 
-
-
-
   }  
-  
+  fbwt_hier_idx_destroy(idx);
+  fbwt_fmidx_destroy(idx);
+
+ 
   return EXIT_SUCCESS;
 }				/* ----------  end of function main  ---------- */
 #ifdef MAIN_ALN

@@ -71,6 +71,7 @@ typedef struct PubParmType
 }PubParm;
 //NUM_FILE_NAME 
 
+
 FileName *setFileName(const char* prefix);
 void  InitRefBwt(PubParm *pParm);
 

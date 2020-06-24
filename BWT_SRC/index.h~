@@ -104,5 +104,5 @@ idx_t *fbwt_fmidx_restore(const char *prefix);
 void fbwt_fmidx_destroy(idx_t *idx);
 
 uint32_t aln_mam(int l_seq, uint8_t *seq, int s_bg, int s_ed, bwtint_t *bg, bwtint_t *ed, idx_t *idx, int max_loc);
-uint32_t aln_mem(idx_t *idx, int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed, int max_loc);
+uint32_t aln_mem(int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed, idx_t *idx, int max_loc);
 #endif

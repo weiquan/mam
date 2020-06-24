@@ -129,11 +129,13 @@ struct SeedIdx {
 	uint32_t *cap_pos;
 	uint8_t  *mod_idx; 
 };
-void seedidx_init(struct SeedIdx *sidx,uint32_t max_seeds, uint32_t ref_len);
 
+
+struct SeedIdx* seedidx_init(uint32_t max_seeds, uint32_t ref_len);
 //void setFileName(char *in_fname, struct FileName *out_fname);
 uint32_t getlen(uint64_t len_seedidx[],struct FileName *inf);
-void SubBuf_init(struct SubBuf *sub_buf);
+
+struct SubBuf *SubBuf_init(int max_buf_size);
 int gen_jmpidx(int n, uint32_t cur_seedidx[][2], uint32_t* jump_idx, uint8_t *mod_idx, uint32_t *out_buf, int n_ext, idx_t *fm_idx);
 void seedidx_open(struct  FileName *f, uint32_t (*sidx)[2], uint64_t len_seedidx[],uint32_t exti,FILE *fpw[]);
 void gen_relat(uint32_t bgn,  uint32_t num, uint32_t num_ext, struct SubBuf *sub_buf, idx_t *idx);
@@ -255,16 +257,16 @@ void log_seqs(idx_t *idx, uint32_t k, uint32_t l, int n_ext)
 // h2 index for 52bp seeds
 // h3 index for 84bp reads
 //...
-int build_hier_idx(idx_t *idx, const char* prefix)
+int build_hier_idx(const char* prefix)
 {
   bwtint_t i, j;
   fprintf(stderr, "[build_hier_idx]:  restore fm_index %s\n", prefix);
-  fbwt_fmidx_restore(idx, prefix);
+
+  idx_t *idx = fbwt_fmidx_restore(prefix);
   
   //+++++++++++++++++++++++++++++++++++++++++++
 	//初始化
-  FileName *f = (FileName*)malloc(sizeof(FileName));
-	setFileName(f, prefix);
+  FileName *f = setFileName(prefix);
   uint64_t len_seedidx[MAX_EXT+1] ;
 	uint32_t max_seeds; 
 	i = getlen(len_seedidx, f);  
@@ -273,8 +275,8 @@ int build_hier_idx(idx_t *idx, const char* prefix)
   uint32_t (*cur_seedidx)[2], (*last_seedidx)[2], (*nxt_seedidx)[2];
 	uint32_t *jmp_idx, *cap_pos;
 	uint8_t  *mod_idx = NULL; 
-	struct SeedIdx *sIdx = (struct SeedIdx*)malloc(sizeof(struct SeedIdx));
-  seedidx_init(sIdx, max_seeds, idx->bwt->seq_len);
+	
+  struct SeedIdx* sIdx = seedidx_init(max_seeds, idx->bwt->seq_len);
 	cur_seedidx = sIdx->cur_seedidx;
 	nxt_seedidx = sIdx->nxt_seedidx;
 	jmp_idx     = sIdx->jmp_idx;
@@ -288,9 +290,9 @@ int build_hier_idx(idx_t *idx, const char* prefix)
 	uint32_t out_buf[2];    
   int max_buf_size = gen_jmpidx(len_seedidx[0], cur_seedidx, jmp_idx, mod_idx,out_buf, 0, idx);
 
-  struct SubBuf *sub= (struct SubBuf*)malloc(sizeof(struct SubBuf));
-  sub->max_buf_size = max_buf_size;
-  SubBuf_init(sub);
+  //struct SubBuf *sub= (struct SubBuf*)malloc(sizeof(struct SubBuf));
+  //sub->max_buf_size = max_buf_size;
+  struct SubBuf *sub = SubBuf_init(max_buf_size);
   struct CapIfo  *cap = sub->cap;
   fp = xopen(f->jmpmod, "wb");
   
@@ -344,57 +346,6 @@ int build_hier_idx(idx_t *idx, const char* prefix)
       gen_relat(bgn, num, exti, sub, idx);  
       bwtint_t bg, ed, relat_len;           
       if(sub->num_relat >max_relat) max_relat = sub->num_relat;
-      /*  
-      if(sub->num_relat <= 0xFF)	{
-        uint8_t *buf_8 = sub->buf_8;
-        bg = 0; 
-        relat_len = sub->num_relat;
-        for(i = bg; i < relat_len; ++i){
-            buf_8[i] = (uint8_t)sub->relat[i]; 
-        }
-        bg = sub->num_relat;
-        relat_len += sub->num_seqL+1;
-        for(i = bg, j =0; i < relat_len; ++i, ++j){
-            buf_8[i] = (uint8_t)sub->L2rel[j]; 
-        }
-        bg = relat_len;
-        relat_len += sub->num_seqR+1;
-        for(i = bg, j=0; i < relat_len; ++i, ++j){
-            buf_8[i] = (uint8_t)sub->R2rel[j]; 
-        }
-        relat_len = (relat_len+3)/4*4;
-        fwrite(buf_8,sizeof(uint8_t),relat_len,fp_relat);
-        relat_len = relat_len/4;
-      } else if(sub->num_relat <=0xFFFF ) {
-        uint16_t *buf_16 = sub->buf_16; 
-        bg = 0;
-        relat_len = sub->num_relat;
-        for(i = bg; i < relat_len; ++i){
-            buf_16[i] = (uint16_t)sub->relat[i]; 
-        }
-        bg = relat_len; 
-        relat_len += sub->num_seqL+1;
-        for(i = bg; i < relat_len; ++i){
-            j = i-sub->num_relat;
-            buf_16[i] = (uint16_t)sub->L2rel[j]; 
-        }
-        
-        bg = relat_len; 
-        relat_len += sub->num_seqR+1;
-        for(i = bg, j=0; i < relat_len; ++i, ++j){
-            buf_16[i] = (uint16_t)sub->R2rel[j]; 
-        }
-        relat_len = (relat_len+1)/2*2;
-        fwrite(buf_16,sizeof(uint16_t),relat_len,fp_relat);
-        relat_len = relat_len/2;
-      } else{
-        uint32_t *buf_32 = sub->buf_32; 
-        fwrite(sub->relat,sizeof(uint32_t),sub->num_relat,fp_relat);
-        fwrite(sub->L2rel,sizeof(uint32_t),sub->num_seqL+1,fp_relat);
-        fwrite(sub->R2rel,sizeof(uint32_t),sub->num_seqR+1,fp_relat);
-        relat_len = sub->num_relat+sub->num_seqL+sub->num_seqR+2;
-      }
-      */
       fwrite(&bgn, sizeof(uint32_t), 1, fp_relat);
       fwrite(&num, sizeof(uint32_t), 1, fp_relat);
       int x = sub->num_seqL +1;
@@ -429,17 +380,7 @@ int build_hier_idx(idx_t *idx, const char* prefix)
         rbwt_bwt_dump(rbwt, fp_smbwt);
         rbwt_bwt_destroy(rbwt);
       } else{
-        /*  
-        for(row = 0; row < sub->num_seqL; ++row){
-          uint32_t buf = sub->sortL[row]; 
-          ch_buf[0] = (uint8_t )((buf>>24)&0xFF);
-          ch_buf[1] = (uint8_t )((buf>>16)&0xFF);
-          ch_buf[2] = (uint8_t )((buf>>8)&0xFF);
-          ch_buf[3] = (uint8_t )((buf)&0xFF);
-          fwrite(ch_buf,sizeof(uint8_t),4,fp_smbwt);
-        } 
-        */
-      //log_seqs(fm_idx, sidx[0], sidx[0]+sidx[1], exti);
+        //log_seqs(fm_idx, sidx[0], sidx[0]+sidx[1], exti);
       }
       if(sub->num_seqR > MIN_BWT_SIZE) {
 #ifdef DEBUG
@@ -456,16 +397,7 @@ int build_hier_idx(idx_t *idx, const char* prefix)
         rbwt_bwt_dump(rbwt, fp_smbwt);
         rbwt_bwt_destroy(rbwt);
       } else{
-        /*  
-        for(row = 0; row < sub->num_seqR; ++row){
-          uint32_t buf = sub->sortR[row]; 
-          ch_buf[0] = (uint8_t )((buf>>24)&0xFF);
-          ch_buf[1] = (uint8_t )((buf>>16)&0xFF);
-          ch_buf[2] = (uint8_t )((buf>>8)&0xFF);
-          ch_buf[3] = (uint8_t )((buf)&0xFF);
-          fwrite(ch_buf,sizeof(uint8_t),4,fp_smbwt);
-        } 
-        */
+      
       }
 
       cap[0].num_seqL  = sub->num_seqL;
@@ -497,6 +429,11 @@ int build_hier_idx(idx_t *idx, const char* prefix)
   fp = xopen("max_relat", "wb");
   fprintf(fp, "max_relat = %u\n", max_relat);
   err_fclose(fp);
+  
+  SubBuf_destroy(sub);
+  destroyFileName(f);
+  seedidx_destroy(sIdx); 
+  fbwt_fmidx_destroy(idx); 
   //comFile(f,f);
 	return 0;
 }
@@ -1249,9 +1186,10 @@ void gen_relat(uint32_t bg, uint32_t num, uint32_t num_ext, struct SubBuf *sub, 
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++
-void seedidx_init(struct SeedIdx *sIdx,uint32_t max_seeds, uint32_t ref_len)
+struct SeedIdx* seedidx_init(uint32_t max_seeds, uint32_t ref_len)
 {
-	uint32_t (*cur_seedidx)[2];
+	struct SeedIdx *sIdx = (struct SeedIdx*)malloc(sizeof(struct SeedIdx));
+  uint32_t (*cur_seedidx)[2];
 	uint32_t (*nxt_seedidx)[2];
 	uint32_t *jmp_idx;
 	uint32_t *cap_pos;
@@ -1278,6 +1216,16 @@ void seedidx_init(struct SeedIdx *sIdx,uint32_t max_seeds, uint32_t ref_len)
 	sIdx->cap_pos     = (uint32_t*)calloc(max_seeds, sizeof(uint32_t));
 	
   
+  return sIdx;
+}
+void seedidx_destroy(struct SeedIdx *sIdx)
+{
+  free(sIdx->jmp_idx);
+  free(sIdx->mod_idx);
+  free(sIdx->cap_pos);  
+  free(sIdx->cur_seedidx);
+  free(sIdx->nxt_seedidx);
+  free(sIdx);  
   return;
 }
 
@@ -1291,11 +1239,13 @@ void seedidx_init(struct SeedIdx *sIdx,uint32_t max_seeds, uint32_t ref_len)
 
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void SubBuf_init(struct SubBuf *sub)
+struct SubBuf *SubBuf_init(int max_buf_size)
 {
-	uint32_t *buf;
-	int max_buf_size = sub->max_buf_size;
-    if(NULL == (buf = (uint32_t*)calloc(max_buf_size*ALL_BUFS_SIZE, sizeof(uint32_t)))){
+	
+  struct SubBuf *sub= (struct SubBuf*)malloc(sizeof(struct SubBuf));
+ 	sub->max_buf_size = max_buf_size; 
+  uint32_t *buf;
+  if(NULL == (buf = (uint32_t*)calloc(max_buf_size*ALL_BUFS_SIZE, sizeof(uint32_t)))){
 	    perror("error...");
 	    exit(1);
 	}
@@ -1307,13 +1257,13 @@ void SubBuf_init(struct SubBuf *sub)
   sub->L2rel    = buf + max_buf_size*7;
   sub->R2rel    = buf + max_buf_size*8;
   sub->seqL_idxR= (uint32_t(*)[3])(buf + max_buf_size*9);
-	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	//sub->idxR     = (uint32_t(*)[2])buf; //注：idxR[][2]的数据存放在;seqL_buf[][2]的物理空间。
-	sub->idxR     = calloc(max_buf_size, 2*sizeof(uint32_t)); //注：idxR[][2]的数据存放在;seqL_buf[][2]的物理空间。
-	sub->relat_sai   = (uint32_t(*)[2])(buf + max_buf_size*2); //注：extIdx[][2]的数据存放在;seqR_buf[][2]的物理空间。
+  sub->relat_sai   = (uint32_t(*)[2])(buf + max_buf_size*2); //注：extIdx[][2]的数据存放在;seqR_buf[][2]的物理空间。
+  sub->idxR     = calloc(max_buf_size, 2*sizeof(uint32_t)); //注：idxR[][2]的数据存放在;seqL_buf[][2]的物理空间。
   sub->pos_buf = buf + max_buf_size*10 ;
   sub->nxt_idx = buf + max_buf_size*11;
   sub->nxt_flg = (uint8_t*)(buf + max_buf_size*12);
+ 
+ 
   //sub->R_relat = buf + max_buf_size*13;
   
   /*
@@ -1369,8 +1319,18 @@ void SubBuf_init(struct SubBuf *sub)
 	sub->cap[0].num_seqR = 0;
 	sub->cap[0].num_relat= 0;	
   
-  return ;
+  return sub;
 }
+
+void SubBuf_destroy(struct SubBuf *sub)
+{
+  free(sub->seqR_buf);
+  free(sub->idxR);
+  free(sub);
+  return;
+}
+
+
 /*  
 void buldSmBwt(struct SubBuf *sub,int flg){
     uint8_t *bwt; uint32_t *sa0, *sa1;
@@ -1483,7 +1443,7 @@ uint32_t aln_mam(int l_seq, uint8_t *seq, int s_bg, int s_ed, bwtint_t *bg, bwti
     exti++; 
   }
 }
-uint32_t aln_mem(int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed, idx_t *idx, int max_loc)
+uint32_t aln_mem(idx_t *idx ,int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed,  int max_loc)
 {
   int64_t i, j;
   uint32_t k = *bg;

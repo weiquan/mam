@@ -200,7 +200,7 @@ void fbwt_hier_idx_destroy(idx_t *idx, const char *prefix)
   free(idx->cnt_table);
   for(i = 0; i < n_ext; ++i) {
     hidx_t *hidx = idx->hier_idx[i];
-    for(j = 0; j < idx->n_hier[i]; ++j) {
+    for(j = 0; j < hidx->n; ++j) {
       free(hidx[j].L2rel);
       //free(hidx[j].R2rel);
       free(hidx[j].relat);

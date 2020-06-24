@@ -243,7 +243,49 @@ uint32_t rbwt_exact_match(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, int l_se
 
   return 0;
 }
-
+uint32_t rbwt_appr_match(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, int l_seq, uint8_t *seq, uint32_t *k, uint32_t *l)
+{
+  int i, rot;
+  rot = 0; 
+  uint32_t k0 = *k, l0 = *l, k1, l1;
+  while(k1 < l1 && rot < n_rot) {
+    uint8_t c = seq[l_seq-1-rot];
+    k0 = k1, l0 = l1;
+    k1 = rbwt->rbwt[rot].C[c] + rbwt_occ(rbwt, rot, k0, c, cnt_table);
+    l1 = rbwt->rbwt[rot].C[c] + rbwt_occ(rbwt, rot, l0, c, cnt_table);
+    rot++; 
+  }
+  if(rot >= n_rot-1){ goto end; }
+  if(rot < n_rot -1) {
+    int ri;
+    for(ri = 1; ri < 16; ++ri){
+      int n_step = 0;
+      rot = ri;
+      k0 = *k, l0 = *l, k1, l1;
+      while(k1 < l1 && n_step < n_rot) {
+        uint8_t c = seq[l_seq-1-rot];
+        k0 = k1, l0 = l1;
+        k1 = rbwt->rbwt[rot].C[c] + rbwt_occ(rbwt, rot, k0, c, cnt_table);
+        l1 = rbwt->rbwt[rot].C[c] + rbwt_occ(rbwt, rot, l0, c, cnt_table);
+        rot = (rot+1)%16;
+        n_step++; 
+      }   
+      if(n_step >= n_rot-1){ goto end; }
+    } 
+  
+  }
+end:
+  if(k1 < l1) {
+    *k = k1;
+    *l = l1;
+    return l0 - k0; 
+  } else {
+    *k = k0;
+    *l = l0;
+    return l0 - k0; 
+  }
+  return 0;
+}
 
 
 void rbwt_test_build()

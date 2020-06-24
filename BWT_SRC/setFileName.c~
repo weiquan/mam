@@ -42,7 +42,8 @@ void destroyFileName(FileName *f)
 {
   free(f->jmpmod);
   free(f->seedidx);
-  free(f->comfile); 
+  free(f->comfile);
+ 
   free(f->capidx); 
   free(f);
   return;
