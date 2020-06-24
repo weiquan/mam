@@ -33,10 +33,10 @@ KSORT_INIT(pair_t, pair_t, ks_lt_pair)
 #define  OFF_SEED  10 
 #define  LEN_EXT   16 
 #define  LEN_READ  150
-#define  NUM_EXT  (((LEN_READ- LEN_SEED )/2)+OFF_SEED+ LEN_EXT-1)/LEN_EXT  
+//#define  MAX_EXT  (((LEN_READ- LEN_SEED )/2)+OFF_SEED+ LEN_EXT-1)/LEN_EXT  
 #define  MAX_SEED_NUM 600000
 #define  LEN_FILE_NAME 100 
-#define  IS_SMLSIZ 16
+
 #define  NUM_SCALE 1
     //LEN_EXT_IDX 是所有ExtIdx[][3]数组长度中最大的，可以用文件大小来计算。
 
@@ -265,7 +265,7 @@ int build_hier_idx(idx_t *idx, const char* prefix)
 	//初始化
   FileName *f = (FileName*)malloc(sizeof(FileName));
 	setFileName(f, prefix);
-  uint64_t len_seedidx[NUM_EXT+1] ;
+  uint64_t len_seedidx[MAX_EXT+1] ;
 	uint32_t max_seeds; 
 	i = getlen(len_seedidx, f);  
   max_seeds = len_seedidx[i];
@@ -301,7 +301,7 @@ int build_hier_idx(idx_t *idx, const char* prefix)
 	fwrite(jmp_idx, sizeof(uint32_t), sIdx->n_jmp, fp);  
 	fwrite(mod_idx, sizeof(uint8_t) , n_mod, fp);  
   err_fclose(fp); 
-  int num_ext = NUM_EXT;
+  int num_ext = MAX_EXT;
   bwtint_t max_relat = 0;
   int exti;
   for(exti= 0; exti < num_ext; ++exti){
@@ -338,13 +338,9 @@ int build_hier_idx(idx_t *idx, const char* prefix)
       bgn = cur_seedidx[si][0];
       num = cur_seedidx[si][1];
       end = bgn + num-1;
-      if(num > IS_SMLSIZ) {
-        fprintf(stderr, "[%s]:  %u, num = %u > %u.\n",__func__,  __LINE__, num, IS_SMLSIZ);
-      
-      } 
       if(num <= IS_SMLSIZ){ continue; } 
-      fprintf(stderr, "[%s]:  %u, generate relation array for left-seqs and right-seqs info.\n",__func__,  __LINE__);
-      fprintf(stderr, "[%s]:  %u, bgn = %u, end = %u.\n",__func__,  __LINE__, bgn, end);
+      //fprintf(stderr, "[%s]:  %u, generate relation array for left-seqs and right-seqs info.\n",__func__,  __LINE__);
+      //fprintf(stderr, "[%s]:  %u, bgn = %u, end = %u.\n",__func__,  __LINE__, bgn, end);
       gen_relat(bgn, num, exti, sub, idx);  
       bwtint_t bg, ed, relat_len;           
       if(sub->num_relat >max_relat) max_relat = sub->num_relat;
@@ -412,30 +408,14 @@ int build_hier_idx(idx_t *idx, const char* prefix)
       fwrite(sub->relat,sizeof(uint32_t),sub->num_relat,fp_relat);
       tot_relat += sub->num_relat;
       relat_len = sub->num_relat+sub->num_seqL+sub->num_seqR+2;
-
       sub->num_ext = exti;	
-      fprintf(stderr, "[%s]:  %u, generate next generation info.\n", __func__, __LINE__);
+      //fprintf(stderr, "[%s]:  %u, generate next generation info.\n", __func__, __LINE__);
       gen_nxt_cap(sub, sIdx->n_jmp, jmp_idx, sIdx->n_mod, mod_idx, cap_pos, idx);
       fwrite(sub->nxt_idx,sizeof(uint32_t),sub->num_relat, fp_relat);
       fwrite(sub->nxt_flg,sizeof(uint8_t), sub->num_relat, fp_relat);
-
-
-      uint8_t ch_buf[5], row;  
-      fprintf(stderr, "[%s]:  %u, generate rbwt.\n", __func__, __LINE__);
+      //fprintf(stderr, "[%s]:  %u, generate rbwt.\n", __func__, __LINE__);
       if(sub->num_seqL > MIN_BWT_SIZE) {
-        /*  
-        buldSmBwt(sub,0); //0生成左Bwt，1生成右Bwt
-        //test_smbwt(sub, 0);
-        uint32_t len_bwtL = (sub->num_seqL+1)/2*8; 
-        fprintf(stderr, "generate next generation info.\n", __LINE__);
-        fwrite(sub->bwt_seqL,sizeof(uint8_t),len_bwtL,fp_smbwt);
-        uint32_t len_sumL = get_bwt_size(sub->num_seqL)-len_bwtL; 		
-        if(len_sumL > 0){
-          //以下当满足累加索引条件时调用＋＋＋＋＋＋＋＋＋＋＋＋＋＋＋
-          gen_cnt_all(sub->bwt_seqL, sub->num_seqL, sub->bwt_sumL);
-          fwrite(sub->bwt_sumL,sizeof(uint8_t), len_sumL,fp_smbwt);
-        }
-        */
+#ifdef DEBUG
         if(__test_sort(sub->num_seqL , sub->sortL) > 0){
           fprintf(stderr, "[%s:%u]: seq %u wrong!\n", __func__, __LINE__, i);
           int ii;
@@ -444,7 +424,7 @@ int build_hier_idx(idx_t *idx, const char* prefix)
           } 
           exit(1);
         }
-
+#endif
         rbwt_t *rbwt = rbwt_bwt_build(sub->num_seqL, 16, sub->sortL, sub->seqL_buf, sub->seqR_buf);
         rbwt_bwt_dump(rbwt, fp_smbwt);
         rbwt_bwt_destroy(rbwt);
@@ -462,18 +442,7 @@ int build_hier_idx(idx_t *idx, const char* prefix)
       //log_seqs(fm_idx, sidx[0], sidx[0]+sidx[1], exti);
       }
       if(sub->num_seqR > MIN_BWT_SIZE) {
-        /*  
-        buldSmBwt(sub,1); //0生成左Bwt，1生成右Bwtt
-        //test_smbwt(sub, 1);
-        uint32_t len_bwtR = (sub->num_seqR+1)/2*8; 
-        uint32_t len_sumR = get_bwt_size(sub->num_seqR)- len_bwtR;
-        fwrite(sub->bwt_seqR,sizeof(uint8_t),len_bwtR,fp_smbwt);
-        if(len_sumR > 0){
-            //以下当满足累加索引条件时调用＋＋＋＋＋＋＋＋＋＋＋＋＋＋＋
-          gen_cnt_all(sub->bwt_seqR, sub->num_seqR, sub->bwt_sumR);
-          fwrite(sub->bwt_sumR,sizeof(uint8_t), len_sumR,fp_smbwt);
-        }
-        */
+#ifdef DEBUG
         if(__test_sort(sub->num_seqR , sub->sortR) > 0){
           fprintf(stderr, "[%s:%u]: seq %u wrong!\n", __func__, __LINE__, i);
           int ii;
@@ -482,6 +451,7 @@ int build_hier_idx(idx_t *idx, const char* prefix)
           }
           exit(1);
         }
+#endif
         rbwt_t *rbwt = rbwt_bwt_build(sub->num_seqR, 16, sub->sortR, sub->seqL_buf, sub->seqR_buf);
         rbwt_bwt_dump(rbwt, fp_smbwt);
         rbwt_bwt_destroy(rbwt);
@@ -501,7 +471,7 @@ int build_hier_idx(idx_t *idx, const char* prefix)
       cap[0].num_seqL  = sub->num_seqL;
       cap[0].num_seqR  = sub->num_seqR;
       cap[0].num_relat = sub->num_relat;
-      fwrite(cap, sizeof(struct CapIfo), 1, fp_capidx);	
+      //fwrite(cap, sizeof(struct CapIfo), 1, fp_capidx);	
       cap[0].nxtcap += sub->num_relat;
       cap[0].relat += relat_len;	 
       sub->len_capidx++;
@@ -513,12 +483,12 @@ int build_hier_idx(idx_t *idx, const char* prefix)
     fclose(fp_capidx);
     fclose(fp_relat);
     fclose(fp_smbwt);
-    
+    /*   
     FILE *fp_extidx = xopen(f->extidx[exti], "w");
     uint32_t len_ext_idx = out_buf[0];
     fwrite(nxt_seedidx, sizeof(uint32_t)*2, len_ext_idx, fp_extidx);
     fclose(fp_extidx);
-    
+    */
     last_seedidx = cur_seedidx;
 		cur_seedidx = nxt_seedidx;
 		nxt_seedidx = last_seedidx; 
@@ -546,11 +516,11 @@ void comFile(struct FileName *rf, struct FileName *wf)
 	uint32_t num = 0;
 	char  buf[2];
   int i,j;
-  int fsize[NUM_FILES][NUM_EXT];
-  int head[NUM_FILES][NUM_EXT];
-  char *fName[NUM_FILES][NUM_EXT] ;
+  int fsize[NUM_FILES][MAX_EXT];
+  int head[NUM_FILES][MAX_EXT];
+  char *fName[NUM_FILES][MAX_EXT] ;
 
-  for(i=0;i<NUM_EXT;i++){
+  for(i=0;i<MAX_EXT;i++){
     fName[0][i]	=  rf->capidx[i];
     fName[1][i]	=  rf->nxtpnt[i];
     fName[2][i]	=  rf->nxtflg[i];
@@ -560,7 +530,7 @@ void comFile(struct FileName *rf, struct FileName *wf)
   }
   printf("comFile() = %s\n","461 row OK! ");
    
-	for(i=0;i<NUM_EXT;i++){
+	for(i=0;i<MAX_EXT;i++){
 		fsize[0][i] =  getFileSize(rf->capidx[i]);
 		fsize[1][i] =  getFileSize(rf->nxtpnt[i]);
 		fsize[2][i] =  getFileSize(rf->nxtflg[i]);
@@ -570,7 +540,7 @@ void comFile(struct FileName *rf, struct FileName *wf)
 	}
 
   printf("comFile() = %s\n","472 row OK! ");
-	for(i=0;i<NUM_EXT;i++){
+	for(i=0;i<MAX_EXT;i++){
 		//head[0][i] = 5;
 		head[0][i] = ((fsize[0][i]+3)/4) ; 
 		head[1][i] = ((fsize[1][i]+3)/4) ; 
@@ -582,7 +552,7 @@ void comFile(struct FileName *rf, struct FileName *wf)
 
   printf("comFile() = %s\n","483  row OK! ");
   int num_ext = 0 ;
-	while(num_ext<NUM_EXT){
+	while(num_ext<MAX_EXT){
 		if((fp_com=fopen(wf->comfile[num_ext],"wb"))==NULL){
       printf("can't open file : %s\n", wf->comfile[num_ext]);
       exit(0);
@@ -674,7 +644,7 @@ uint32_t getlen(uint64_t len_seedidx[],struct FileName *f){
     uint64_t max;
     m_i=0;
     max = 0 ;
-    for(i=0;i<NUM_EXT+1;i++){
+    for(i=0;i<MAX_EXT+1;i++){
         //len_seedidx[i] = getFileSize(f->seedidx[i])/12;
     	len_seedidx[i] = getFileSize(f->seedidx[i])/8;
        if(max < len_seedidx[i]){
@@ -806,6 +776,7 @@ int __check_seedidx(uint32_t bg, uint32_t num, int len, idx_t *idx)
   if(num0 != num) {
     fprintf(stderr, "[%s:%u]: bg = %u, num = %u, num0 = %u\n", __func__, __LINE__,  bg, num, num0);
   }
+  free(seq);
   return num0 == num;
 
 }
@@ -1287,12 +1258,12 @@ void seedidx_init(struct SeedIdx *sIdx,uint32_t max_seeds, uint32_t ref_len)
 	uint8_t  *mod_idx; 
 
 
-	if(NULL == (cur_seedidx = (uint32_t(*)[2])malloc(max_seeds*2*sizeof(uint32_t)))){
+	if(NULL == (cur_seedidx = (uint32_t(*)[2])calloc(max_seeds, 2*sizeof(uint32_t)))){
 	    perror("error...");
 	    exit(1);
 	}
 
-  if(NULL == (nxt_seedidx = (uint32_t(*)[2])malloc(max_seeds*2*sizeof(uint32_t)))){
+  if(NULL == (nxt_seedidx = (uint32_t(*)[2])calloc(max_seeds, 2*sizeof(uint32_t)))){
 	    perror("error...");
 	    exit(1);
 	}
@@ -1302,9 +1273,9 @@ void seedidx_init(struct SeedIdx *sIdx,uint32_t max_seeds, uint32_t ref_len)
 	sIdx->n_jmp = (ref_len+511)/256;
 	sIdx->n_mod = (ref_len+511)/256;
 	sIdx->n_cap = max_seeds;
-  sIdx->jmp_idx     = (uint32_t*)malloc(((ref_len+511)/256)*sizeof(uint32_t));
-	sIdx->mod_idx     = (uint32_t*)malloc(((ref_len+511)/256)*sizeof(uint32_t));
-	sIdx->cap_pos     = (uint32_t*)malloc(max_seeds*sizeof(uint32_t));
+  sIdx->jmp_idx     = (uint32_t*)calloc(((ref_len+511)/256), sizeof(uint32_t));
+	sIdx->mod_idx     = (uint32_t*)calloc(((ref_len+511)/256), sizeof(uint32_t));
+	sIdx->cap_pos     = (uint32_t*)calloc(max_seeds, sizeof(uint32_t));
 	
   
   return;
@@ -1324,7 +1295,7 @@ void SubBuf_init(struct SubBuf *sub)
 {
 	uint32_t *buf;
 	int max_buf_size = sub->max_buf_size;
-    if(NULL == (buf = (uint32_t*)malloc(max_buf_size*ALL_BUFS_SIZE*sizeof(uint32_t)))){
+    if(NULL == (buf = (uint32_t*)calloc(max_buf_size*ALL_BUFS_SIZE, sizeof(uint32_t)))){
 	    perror("error...");
 	    exit(1);
 	}
@@ -1344,6 +1315,8 @@ void SubBuf_init(struct SubBuf *sub)
   sub->nxt_idx = buf + max_buf_size*11;
   sub->nxt_flg = (uint8_t*)(buf + max_buf_size*12);
   //sub->R_relat = buf + max_buf_size*13;
+  
+  /*
   uint8_t *buf_8;
   if(NULL == (buf_8 = (uint8_t*)malloc(max_buf_size*3*sizeof(uint8_t)))){
     perror("error...");
@@ -1373,7 +1346,7 @@ void SubBuf_init(struct SubBuf *sub)
 	sub->bwt_seqR = bwt + 6*max_buf_size ;    
 	sub->bwt_sumR = bwt + 10*max_buf_size ;  
 
-
+  */
 	sub->num_seqL = 0;
 	sub->num_seqR = 0;
 	sub->num_relat= 0;	
@@ -1642,7 +1615,7 @@ void gen_nxt_cap(struct SubBuf *subBuf,int n_jmp, uint32_t *jmp_idx, int n_mod, 
 
     }
   }
-
+  /*  
   for(i=0; i<sub->num_seqR; i++){
     bgn = sub->R2rel[i];
     end = sub->R2rel[i+1];
@@ -1652,7 +1625,7 @@ void gen_nxt_cap(struct SubBuf *subBuf,int n_jmp, uint32_t *jmp_idx, int n_mod, 
       sub->seqL_idxR[j][2] = sub->idxR[i][1];
     }
   }
-
+  */
   fprintf(stderr, "[%s]:  %u, num_seqL = %u, num_seqR = %d, num_relat = %d\n",__func__,  __LINE__, sub->num_seqL, sub->num_seqR, sub->num_relat);	
   for(i=0;i<sub->num_relat;i++){
     seq = sub->seqL_idxR[i][0]; // seq of lseq

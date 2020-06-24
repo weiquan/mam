@@ -95,7 +95,10 @@ typedef struct{
 
 
 } idx_t;
-
+#define IS_SMLSIZ 50
+#define LEN_INIT_SEED 20
+#define LEN_EXT_SEQ 16
+#define MAX_EXT 5
 
 idx_t *fmidx_restore(const char *prefix);
 void fmidx_destroy(idx_t *idx);

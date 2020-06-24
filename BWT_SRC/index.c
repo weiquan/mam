@@ -103,13 +103,9 @@ void log_seq162nt(uint32_t x)
 idx_t *fbwt_fmidx_restore(idx_t *idx, const char *prefix)
 {
   char fn0[MAX_NAME];
-  
-
   /* restore pac and ann */ 
-
   idx->bns = bns_restore(prefix);  
   idx->pac = (uint8_t *)calloc(idx->bns->l_pac/4+1, sizeof(uint8_t));
-
   fread(idx->pac, sizeof(uint8_t), idx->bns->l_pac/4+1, idx->bns->fp_pac);
   //err_fclose(fp_pac);
   /* restore FM-index */
@@ -321,7 +317,7 @@ void build_fmidx(const char *fn_fa, const char *prefix)
 #define LEN_SEED 20
 #define LEN_EXT 16
 #define IDX_MID_SIZE (254*256)
-#define IS_SMLSIZ 16
+
 void create_jmpmod(const char*prefix, bwt_t *bwt, int ext_i, uint32_t *jump_idx, uint8_t *mod_idx, uint32_t *cap_pos) 
 {
 
@@ -379,7 +375,6 @@ void gen_seedidx(uint8_t *bwt_is_repeat, idx_t *idx, int ext_i, const char*prefi
     uint32_t glb_idx = 0;   
     int n_seedidx = 0;
     while(glb_idx <= bwt->seq_len+1) {
-      if(n_seedidx % 10000 == 0) fprintf(stderr, "[%s]: n_seedidx = %d\n", __func__, n_seedidx);
       cur_flag = bwt_is_repeat[glb_idx];  
       /*  
       if(last_flag == FLAG_UNIQ){
@@ -438,7 +433,7 @@ void gen_seedidx(uint8_t *bwt_is_repeat, idx_t *idx, int ext_i, const char*prefi
           next_flag = ed_idx <= bwt->seq_len+1?bwt_is_repeat[ed_idx]:FLAG_UNIQ; 
         } 
       } else{
-          fprintf(stderr, "[%s]:  cur_flg = %u, glb_idx = %u\n", __func__, __func__, cur_flag, glb_idx);
+          fprintf(stderr, "[%s]:  cur_flg = %u, glb_idx = %u\n", __func__,cur_flag, glb_idx);
       
       }
       tot_idx = ed_idx  - bg_idx;
@@ -446,6 +441,7 @@ void gen_seedidx(uint8_t *bwt_is_repeat, idx_t *idx, int ext_i, const char*prefi
 
       if(cur_flag == FLAG_UNIQ) continue; 
       //print begin index and total number of index
+#ifdef DEBUG
       if(!__check_seedidx(bg_idx, tot_idx, 20+32*ext_i, idx)){
         fprintf(stderr, "[%s]:  bg_idx = %u, ed_idx = %u, tot_idx = %u, cur_flag = %u\n", __func__, bg_idx, ed_idx, tot_idx, cur_flag);
         bwtint_t i;
@@ -454,6 +450,8 @@ void gen_seedidx(uint8_t *bwt_is_repeat, idx_t *idx, int ext_i, const char*prefi
         }
         exit(1);
       }
+#endif
+      if(n_seedidx % 10000 == 0) fprintf(stderr, "[%s]: n_seedidx = %d\n", __func__, n_seedidx);
       n_seedidx++;
       next_idx[0] = bg_idx;
       next_idx[1] = tot_idx;
@@ -1048,7 +1046,7 @@ void build_extend_idx_alt(const char *prefix)
 #define  NUM_EXT  (((LEN_READ- LEN_SEED )/2)+OFF_SEED+ LEN_EXT-1)/LEN_EXT  
 #define  MAX_SEED_NUM 600000
 #define  LEN_FILE_NAME 100 
-#define  IS_SMLSIZ 16
+
 #define  LEN_EXT_IDX  
 //LEN_EXT_IDX 是所有ExtIdx[][3]数组长度中最大的，可以用文件大小来计算。
 

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "setFileName.h"
-//void setFileName(char *in_fname, FileName *out_fname,int flg ){
+
 
 #define ROOT_PATH "../Index/"
 void setFileName(FileName *f, const char* prefix)
@@ -16,24 +16,24 @@ void setFileName(FileName *f, const char* prefix)
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   f->jmpmod  = (char*)malloc(LEN_FILE_NAME * sizeof(char));
   sprintf(f->jmpmod, "%s_jmpmod.txt", prefix);
-  f->seedidx = (char(*)[LEN_FILE_NAME])malloc((NUM_EXT+1)*LEN_FILE_NAME * sizeof(char)); 
-  for(i=0;i<NUM_EXT+1; i++){
+  f->seedidx = (char(*)[LEN_FILE_NAME])malloc((MAX_EXT+1)*LEN_FILE_NAME * sizeof(char)); 
+  for(i=0;i<MAX_EXT+1; i++){
     sprintf(f->seedidx[i], "%s_seedidx_%d.txt", prefix, i);
   }
-  f->comfile = (char(*)[LEN_FILE_NAME])malloc(NUM_EXT*LEN_FILE_NAME * sizeof(char));
-  for(i=0;i<NUM_EXT; i++){
+  f->comfile = (char(*)[LEN_FILE_NAME])malloc(MAX_EXT*LEN_FILE_NAME * sizeof(char));
+  for(i=0;i<MAX_EXT; i++){
     sprintf(f->comfile[i], "%s_comfile_%d.txt", prefix, i);
   }
   f->numidxfiles = 6;
-  char (*pf)[LEN_FILE_NAME] = (char(*)[LEN_FILE_NAME])malloc(NUM_FILES * (NUM_EXT+1) * LEN_FILE_NAME * sizeof(char));
-  f->capidx  = pf + 0*NUM_EXT; 
-  f->relat   = pf + 1*NUM_EXT; 
-  f->smbwt   = pf + 2*NUM_EXT; 
-  f->nxtpnt  = pf + 3*NUM_EXT; 
-  f->nxtflg  = pf + 4*NUM_EXT; 
-  f->extidx   = pf + 5*NUM_EXT; 
-  //NUM_EXT个输出文件CapIdxFile_i.txt
-  for(i=0;i<NUM_EXT; i++){
+  char (*pf)[LEN_FILE_NAME] = (char(*)[LEN_FILE_NAME])malloc(NUM_FILES * (MAX_EXT+1) * LEN_FILE_NAME * sizeof(char));
+  f->capidx  = pf + 0*MAX_EXT; 
+  f->relat   = pf + 1*MAX_EXT; 
+  f->smbwt   = pf + 2*MAX_EXT; 
+  f->nxtpnt  = pf + 3*MAX_EXT; 
+  f->nxtflg  = pf + 4*MAX_EXT; 
+  f->extidx   = pf + 5*MAX_EXT; 
+  //MAX_EXT个输出文件CapIdxFile_i.txt
+  for(i=0;i<MAX_EXT; i++){
     sprintf(f->capidx[i], "%s_capidx_%d.txt", prefix, i);
     sprintf(f->relat[i],  "%s_relat_%d.txt", prefix, i);
     sprintf(f->smbwt[i],  "%s_smbwt_%d.txt", prefix, i);
@@ -86,16 +86,16 @@ printf("jmpmod out3 ok\n");
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     if (strcmp(in_fname, seedidx) == 0) {
-		if(NULL == (pf = (char(*)[LEN_FILE_NAME])malloc(NUM_EXT*LEN_FILE_NAME * sizeof(char)))){
-		    perror("error：[malloc(NUM_FILE_NAME*NUM_EXT*LEN_FILE_NAME*sizeof(char))]");
+		if(NULL == (pf = (char(*)[LEN_FILE_NAME])malloc(MAX_EXT*LEN_FILE_NAME * sizeof(char)))){
+		    perror("error：[malloc(NUM_FILE_NAME*MAX_EXT*LEN_FILE_NAME*sizeof(char))]");
 		    exit(1);
 		}
 
 		f->seedidx = pf; 
-		//NUM_EXT个输出文件seedidx_i.txt
+		//MAX_EXT个输出文件seedidx_i.txt
 
 
-		for(i=0;i<NUM_EXT+1; i++){
+		for(i=0;i<MAX_EXT+1; i++){
 			//strcpy (*(f->seedidx+i),"data/seedidx/seedidx_");
 			strcpy (*(f->seedidx+i),"seedidx_");
       		sprintf(ch, "%d", i);  
@@ -111,13 +111,13 @@ printf("jmpmod out4 ok\n");
 
     if (strcmp(in_fname, comfile) == 0) {
 
-		if(NULL == (pf = (char(*)[LEN_FILE_NAME])malloc(NUM_EXT*LEN_FILE_NAME * sizeof(char)))){
-		    perror("error：[malloc(NUM_FILE_NAME*NUM_EXT*LEN_FILE_NAME*sizeof(char))]");
+		if(NULL == (pf = (char(*)[LEN_FILE_NAME])malloc(MAX_EXT*LEN_FILE_NAME * sizeof(char)))){
+		    perror("error：[malloc(NUM_FILE_NAME*MAX_EXT*LEN_FILE_NAME*sizeof(char))]");
 		    exit(1);
 		}
 		f->comfile = pf; 
-		//NUM_EXT个输出文件seedidx_i.txt
-		for(i=0;i<NUM_EXT; i++){
+		//MAX_EXT个输出文件seedidx_i.txt
+		for(i=0;i<MAX_EXT; i++){
 			//strcpy (*(f->comfile+i),"data/comfile/comfile_");
 			strcpy (*(f->comfile+i),"comfile_");
 			sprintf(ch, "%d", i);
@@ -131,19 +131,19 @@ printf("jmpmod out5 ok\n");
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     if (strcmp(in_fname, idxfile) == 0) {
-		if(NULL == (pf = (char(*)[LEN_FILE_NAME])malloc(NUM_FILES * NUM_EXT * LEN_FILE_NAME * sizeof(char)))){
-		    perror("error：[malloc(NUM_FILE_NAME*NUM_EXT*LEN_FILE_NAME*sizeof(char))]");
+		if(NULL == (pf = (char(*)[LEN_FILE_NAME])malloc(NUM_FILES * MAX_EXT * LEN_FILE_NAME * sizeof(char)))){
+		    perror("error：[malloc(NUM_FILE_NAME*MAX_EXT*LEN_FILE_NAME*sizeof(char))]");
 		    exit(1);
 		}
-		f->capidx  = pf + 0*NUM_EXT; 
-		f->relat   = pf + 1*NUM_EXT; 
-		f->smbwt   = pf + 2*NUM_EXT; 
-		f->nxtpnt  = pf + 3*NUM_EXT; 
-		f->nxtflg  = pf + 4*NUM_EXT; 
-		f->extidx  = pf + 5*NUM_EXT; 
+		f->capidx  = pf + 0*MAX_EXT; 
+		f->relat   = pf + 1*MAX_EXT; 
+		f->smbwt   = pf + 2*MAX_EXT; 
+		f->nxtpnt  = pf + 3*MAX_EXT; 
+		f->nxtflg  = pf + 4*MAX_EXT; 
+		f->extidx  = pf + 5*MAX_EXT; 
 
-		//NUM_EXT个输出文件CapIdxFile_i.txt
-		for(i=0;i<NUM_EXT; i++){
+		//MAX_EXT个输出文件CapIdxFile_i.txt
+		for(i=0;i<MAX_EXT; i++){
 			//strcpy (f->capidx[i],"data/capidx/capidx_");
 			strcpy (f->capidx[i],"capidx_");
 			sprintf(ch, "%d", i);
@@ -151,8 +151,8 @@ printf("jmpmod out5 ok\n");
 			strcat (f->capidx[i],".txt");	
 		}
 
-		//NUM_EXT个输出文件RelatFile_i.txt
-		for(i=0;i<NUM_EXT; i++){
+		//MAX_EXT个输出文件RelatFile_i.txt
+		for(i=0;i<MAX_EXT; i++){
 			//strcpy (f->relat[i],"data/relat/relat_");
 			strcpy (f->relat[i],"relat_");
 			sprintf(ch, "%d", i);
@@ -161,8 +161,8 @@ printf("jmpmod out5 ok\n");
 		}
 //printf("f->idxfile = %s\n",f->relat[0]);			
 	
-		//NUM_EXT个输出文件SmBwtFile_i.txt
-		for(i=0;i<NUM_EXT; i++){
+		//MAX_EXT个输出文件SmBwtFile_i.txt
+		for(i=0;i<MAX_EXT; i++){
 			//strcpy (*(f->smbwt+i),"data/smbwt/smbwt_");
 			strcpy (*(f->smbwt+i),"smbwt_");
 			sprintf(ch, "%d", i);
@@ -170,8 +170,8 @@ printf("jmpmod out5 ok\n");
 			strcat (*(f->smbwt+i),".txt");	
 		}
 
-		//NUM_EXT个输出文件NxtPntFile_i.txt
-		for(i=0;i<NUM_EXT; i++){
+		//MAX_EXT个输出文件NxtPntFile_i.txt
+		for(i=0;i<MAX_EXT; i++){
 			//strcpy (*(f->nxtpnt+i),"data/nxtpnt/nxtpnt_");
 			strcpy (*(f->nxtpnt+i),"nxtpnt_");
 			sprintf(ch, "%d", i);
@@ -179,8 +179,8 @@ printf("jmpmod out5 ok\n");
 			strcat (*(f->nxtpnt+i),".txt");	
 		}
 
-		//NUM_EXT个输出文件NxtFlgFile_i.txt
-		for(i=0;i<NUM_EXT; i++){
+		//MAX_EXT个输出文件NxtFlgFile_i.txt
+		for(i=0;i<MAX_EXT; i++){
 			//strcpy (*(f->nxtflg+i),"data/nxtflg/nxtflg_");
 			strcpy (*(f->nxtflg+i),"nxtflg_");
 			sprintf(ch, "%d", i);
@@ -188,8 +188,8 @@ printf("jmpmod out5 ok\n");
 			strcat (*(f->nxtflg+i),".txt");	
 		}
 
-		//NUM_EXT个输出文件SmPosFile_i.txt
-		for(i=0;i<NUM_EXT; i++){
+		//MAX_EXT个输出文件SmPosFile_i.txt
+		for(i=0;i<MAX_EXT; i++){
 			//strcpy (*(f->extidx+i),"data/extidx/extidx_");
 			strcpy (*(f->extidx+i),"extidx_");
 			sprintf(ch, "%d", i);

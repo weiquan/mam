@@ -18,7 +18,8 @@
 #define  OFF_SEED  10 
 #define  LEN_EXT   16 
 #define  LEN_READ  150
-#define  NUM_EXT  (((LEN_READ- LEN_SEED )/2)+OFF_SEED+ LEN_EXT-1)/LEN_EXT  
+//#define  MAX_EXT  (((LEN_READ- LEN_SEED )/2)+OFF_SEED+ LEN_EXT-1)/LEN_EXT  
+#define  MAX_EXT 5  
 #define  MAX_SEED_NUM 600000
 #define  LEN_FILE_NAME 128 
 
