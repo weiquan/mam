@@ -260,8 +260,7 @@ void log_seqs(idx_t *idx, uint32_t k, uint32_t l, int n_ext)
 int build_hier_idx(const char* prefix)
 {
   bwtint_t i;
-  fprintf(stderr, "[build_hier_idx]:  restore fm_index %s\n", prefix);
-
+  fprintf(stderr, "[%s]:  restore fm_index %s\n", __func__, prefix);
   idx_t *idx = fbwt_fmidx_restore(prefix);
   
   //+++++++++++++++++++++++++++++++++++++++++++
@@ -276,6 +275,7 @@ int build_hier_idx(const char* prefix)
 	uint32_t *jmp_idx, *cap_pos;
 	uint8_t  *mod_idx = NULL; 
 	
+  fprintf(stderr, "[%s]:  generate seed index %s\n", __func__);
   struct SeedIdx* sIdx = seedidx_init(max_seeds, idx->bwt->seq_len);
 	cur_seedidx = sIdx->cur_seedidx;
 	nxt_seedidx = sIdx->nxt_seedidx;
@@ -307,8 +307,6 @@ int build_hier_idx(const char* prefix)
   bwtint_t max_relat = 0;
   int exti;
   for(exti= 0; exti < num_ext; ++exti){
-
-
     int tot_relat = 0;
     sub->len_capidx = 0;	
     cap[0].relat = 0; 
@@ -327,14 +325,11 @@ int build_hier_idx(const char* prefix)
     uint32_t l_seedidx = out_buf[0];
     fprintf(stderr, "[%s]:  %u, fn_relat[%d] = %s, l_seedidx = %d\n", __func__, __LINE__, exti, f->relat[exti], l_seedidx);
     fwrite(&l_seedidx, sizeof(uint32_t), 1, fp_relat);
-
-
     fprintf(stderr, "[%s]:  open seedidx finish!\n", __func__);
     bwtint_t bgn, end, num;
     //fprintf(stderr, "[%s]:  %u, out_buf[0] = %d, max_buf_size = %u\n", __func__, __LINE__, out_buf[0], max_buf_size);
     gen_jmpidx(len_seedidx[exti+1], nxt_seedidx, jmp_idx, mod_idx, out_buf, exti+1, idx);
     //fprintf(stderr, "[%s]:  %u, ext_num = %d, out_buf[0] = %d, max_buf_size = %u\n", __func__, __LINE__, exti, out_buf[0], max_buf_size);
-
     bwtint_t si;
     for(si = 0; si < l_seedidx; ++si){
       bgn = cur_seedidx[si][0];
@@ -353,7 +348,7 @@ int build_hier_idx(const char* prefix)
       fwrite(sub->L2rel,sizeof(uint32_t), x, fp_relat);
       x = sub->num_seqR +1;
       fwrite(&x, sizeof(uint32_t), 1,fp_relat);
-      fwrite(sub->R2rel,sizeof(uint32_t), x, fp_relat);
+      //fwrite(sub->R2rel,sizeof(uint32_t), x, fp_relat);
       fwrite(&tot_relat,sizeof(uint32_t), 1,fp_relat);
       fwrite(&sub->num_relat,sizeof(uint32_t), 1,fp_relat);
       fwrite(sub->relat,sizeof(uint32_t),sub->num_relat,fp_relat);

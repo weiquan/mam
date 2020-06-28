@@ -163,10 +163,11 @@ idx_t *fbwt_hier_idx_restore(idx_t *idx, const char *prefix)
       fread(&n, sizeof(uint32_t), 1, fp_relat);
       //fprintf(stderr, "n_R = %u\n", n);
       hidx[j].n_R = n;
+     /*  
       hidx[j].R2rel = calloc(n, sizeof(uint32_t));
       fread(hidx[j].R2rel,sizeof(uint32_t), n, fp_relat);
       free(hidx[j].R2rel);
-
+    */
       fread(&n, sizeof(uint32_t), 1, fp_relat);
       hidx[j].relat_bg = n;
       fread(&n, sizeof(uint32_t), 1, fp_relat);

@@ -201,15 +201,143 @@ int push_cigar(uint8_t *pac, uint32_t ref_bg, uint32_t ref_ed, int l_seq, const 
 
 
   ksw_global(l_seq, seq, ref_ed-ref_bg, ref, 5, mat, gapo, gape, 100, n_cigar, cigar);
+  /*  
   fprintf(stderr, "sc = %d, cigar:", minsc);
   for(i =0; i < *n_cigar; ++i) {
     fprintf(stderr, "%u%c", (*cigar)[i]>>4, "MID"[(*cigar)[i]&0xF]); 
   } 
   fprintf(stderr, "\n");
+  */
 }
 
 
+void alnse_core_single(idx_t *index, query_t *query, aln_opt_t* aln_opt)
+{
+  int i, j;   
+  uint32_t max_locate = aln_opt->max_locate;
+  int max_diff = aln_opt->max_diff; 
+ 
 
+
+  int l_seq = query->l_seq;
+  uint8_t *seq= query->seq;
+  uint8_t *rseq = query->rseq;
+  //fprintf(stderr, "[%s]: seeding\n", query->name);
+  //seeding 
+  candi_t candi0, candi1;
+  kv_init(candi0);  kv_init(candi1);   
+
+  alnse_seed_overlap(index, l_seq, seq, aln_opt, &candi0);
+  alnse_seed_overlap(index, l_seq, rseq, aln_opt, &candi1);
+
+
+  //chaining
+  kvec_t(chain_t) chain0, chain1;
+  kv_init(chain0);  kv_init(chain1);   
+  alnse_chain(&candi0, aln_opt->max_chain_gap, 512, &chain0);
+  alnse_chain(&candi1, aln_opt->max_chain_gap, 512, &chain1);
+  //extending
+#ifdef DEBUG
+  for(j = 0; j < candi0.n; ++j) {
+    fprintf(stderr, "%u\t",candi0.a[j]);
+  } 
+  fprintf(stderr, "\n[%s]: backward\n", query->name);
+  for(j = 0; j < candi1.n; ++j) {
+    fprintf(stderr, "%u\t",candi1.a[j]);
+  } 
+  fprintf(stderr, "\n");
+
+  fprintf(stderr, "[%s]: chaining\n", query->name);
+  for(j = 0; j < chain0.n; ++j) {
+    fprintf(stderr, "[bg, ed, n, l] = [%u, %u, %u, %u]\n", chain0.a[j].bg, chain0.a[j].ed, chain0.a[j].n, chain0.a[j].ed - chain0.a[j].bg);
+  } 
+  fprintf(stderr, "\n[%s]: backward\n", query->name);
+  for(j = 0; j < chain1.n; ++j) {
+    fprintf(stderr, "[bg, ed, n, l] = [%u, %u, %u, %u]\n", chain1.a[j].bg, chain1.a[j].ed, chain1.a[j].n, chain1.a[j].ed - chain1.a[j].bg);
+  } 
+  
+#endif   
+  // 
+  uint32_t ref_bg, ref_ed;
+  int n_extend = aln_opt->max_extend < chain0.n? aln_opt->max_extend:chain0.n;
+  kvec_t(aln_t) aln;
+  kv_init(aln);
+  int thres = query->l_seq/3;
+  int maxsc = thres, maxi = -1; 
+  for(j =0; j < n_extend; ++j) {
+    ref_bg = chain0.a[j].bg; 
+    ref_ed = chain0.a[j].ed; 
+    kswr_t r = alnse_extend(index->pac, ref_bg, ref_ed, query->l_seq, seq, index->mat, maxsc);
+#ifdef DEBUG
+    fprintf(stderr, "[bg, ed, n, l, sc] = [%u, %u, %u, %u, %u, %u, %u, %u, %u]\n", chain0.a[j].bg, chain0.a[j].ed, chain0.a[j].n, chain0.a[j].ed - chain0.a[j].bg, r.score, r.tb, r.te, r.qb, r.qe);
+#endif
+    if(r.score > thres) {
+      aln_t x;
+      x.strand = 0;
+      x.sc = r.score;
+      x.tb = r.tb+ref_bg;
+      x.te = r.te+ref_bg+1;
+      x.qb = r.qb;
+      x.qe = r.qe+1;
+      kv_push(aln_t, aln, x); // append bgn
+      if(r.score > maxsc){ 
+        maxsc = r.score;
+        maxi = aln.n-1;    
+      }
+ 
+    }
+  }
+  n_extend = aln_opt->max_extend < chain1.n? aln_opt->max_extend:chain1.n;
+  for(j =0; j < n_extend; ++j) {
+    ref_bg = chain1.a[j].bg; 
+    ref_ed = chain1.a[j].ed;  
+    kswr_t r = alnse_extend(index->pac, ref_bg, ref_ed, query->l_seq, rseq, index->mat, maxsc);
+#ifdef DEBUG
+    fprintf(stderr, "[bg, ed, n, l, sc] = [%u, %u, %u, %u, %u, %u, %u, %u, %u]\n", chain1.a[j].bg, chain1.a[j].ed, chain1.a[j].n, chain1.a[j].ed - chain1.a[j].bg, r.score, r.tb, r.te, r.qb, r.qe);
+#endif
+    if(r.score > thres) {
+      aln_t x;
+      x.strand = 1;
+      x.sc = r.score;
+      x.tb = r.tb+ref_bg;
+      x.te = r.te+ref_bg+1;
+      x.qb = r.qb;
+      x.qe = r.qe+1;
+      kv_push(aln_t, aln, x); // append bgn
+      if(r.score > maxsc){ 
+        maxsc = r.score;
+        maxi = aln.n-1;    
+      }
+    }
+  }
+  if(maxi != -1) {
+    query->pos = query->ref_start = aln.a[maxi].tb;
+    query->b0 = maxsc;
+    query->strand = aln.a[maxi].strand;
+    query->ref_start = aln.a[maxi].tb;
+    query->ref_end = aln.a[maxi].te;
+    query->seq_start = aln.a[maxi].qb;
+    query->seq_end = aln.a[maxi].qe;
+
+    //alnse_global(index->pac, aln.a[maxi].tb, aln.a[maxi].te, l_seq, aln.a[maxi].strand==0?seq:rseq, index->mat, maxsc);
+  } else {
+    query->pos = 0xFFFFFFFF;
+    
+  }
+ 
+
+  //destroy
+  kv_destroy(candi0);
+  kv_destroy(candi1);
+  kv_destroy(chain0);
+  kv_destroy(chain1);
+  kv_destroy(aln);
+
+
+  return;    
+
+
+}
 void alnse_core1(idx_t *index, int n, query_t *multi_query, aln_opt_t* aln_opt)
 {
   int i, j;   
@@ -221,7 +349,7 @@ void alnse_core1(idx_t *index, int n, query_t *multi_query, aln_opt_t* aln_opt)
     int l_seq = query->l_seq;
     uint8_t *seq= query->seq;
     uint8_t *rseq = query->rseq;
-    fprintf(stderr, "[%s]: seeding\n", query->name);
+    //fprintf(stderr, "[%s]: seeding\n", query->name);
     //seeding 
     candi_t candi0, candi1;
     kv_init(candi0);  kv_init(candi1);   
@@ -255,8 +383,6 @@ void alnse_core1(idx_t *index, int n, query_t *multi_query, aln_opt_t* aln_opt)
       fprintf(stderr, "[bg, ed, n, l] = [%u, %u, %u, %u]\n", chain1.a[j].bg, chain1.a[j].ed, chain1.a[j].n, chain1.a[j].ed - chain1.a[j].bg);
     } 
     
-
-
 #endif   
     // 
     uint32_t ref_bg, ref_ed;
@@ -269,8 +395,9 @@ void alnse_core1(idx_t *index, int n, query_t *multi_query, aln_opt_t* aln_opt)
       ref_bg = chain0.a[j].bg; 
       ref_ed = chain0.a[j].ed; 
       kswr_t r = alnse_extend(index->pac, ref_bg, ref_ed, query->l_seq, seq, index->mat, maxsc);
-    
+#ifdef DEBUG
       fprintf(stderr, "[bg, ed, n, l, sc] = [%u, %u, %u, %u, %u, %u, %u, %u, %u]\n", chain0.a[j].bg, chain0.a[j].ed, chain0.a[j].n, chain0.a[j].ed - chain0.a[j].bg, r.score, r.tb, r.te, r.qb, r.qe);
+#endif
       if(r.score > thres) {
         aln_t x;
         x.strand = 0;
@@ -292,7 +419,9 @@ void alnse_core1(idx_t *index, int n, query_t *multi_query, aln_opt_t* aln_opt)
       ref_bg = chain1.a[j].bg; 
       ref_ed = chain1.a[j].ed;  
       kswr_t r = alnse_extend(index->pac, ref_bg, ref_ed, query->l_seq, rseq, index->mat, maxsc);
+#ifdef DEBUG
       fprintf(stderr, "[bg, ed, n, l, sc] = [%u, %u, %u, %u, %u, %u, %u, %u, %u]\n", chain1.a[j].bg, chain1.a[j].ed, chain1.a[j].n, chain1.a[j].ed - chain1.a[j].bg, r.score, r.tb, r.te, r.qb, r.qe);
+#endif
       if(r.score > thres) {
         aln_t x;
         x.strand = 1;
@@ -332,7 +461,7 @@ void alnse_core1(idx_t *index, int n, query_t *multi_query, aln_opt_t* aln_opt)
     kv_destroy(candi1);
     kv_destroy(chain0);
     kv_destroy(chain1);
-
+    kv_destroy(aln);
   }
   return;    
 }
@@ -344,27 +473,24 @@ static void *alnse_worker(void *data)
 {
     thread_aux_t *d = (thread_aux_t*)data;
     //alnse_core1(d->tid, d->index, d->n_query, d->query, d->aln_opt, d->aux); 
-    alnse_core_thread(d->tid, d->index, d->n_query, d->query, d->aln_opt, d->aux); 
+    alnse_core_thread(d->tid, d->index, d->n_query, d->query, d->aln_opt); 
     return 0;
 }
 #endif
 #define MAX_N_PERSEQ 200
 void alnse_core_thread(int tid, idx_t *index, int n_query, query_t *multi_query, aln_opt_t *aln_opt)
 {
-    int i;
-    while(1){
-	    pthread_rwlock_wrlock(&rwlock);
-      i = g_n_seqs++; 
-      pthread_rwlock_unlock(&rwlock);
-      if(i >= n_query) break;
-      //fprintf(stderr, "[tid:%d]run seq %d", tid, i); 
-      //fprintf(stderr, "aln_opt:%d", aln_opt->n_threads); 
-      query_t *query = multi_query+i;
-      if(query->n_ambiguous > MAX_N_PERSEQ) continue;
-      //if(aln_opt->l_overlap > 0) alnse_overlap_alt(index, query, aln_opt, aux);
-      //aln_samse(index, query, aln_opt);
-   }
-    
+  int i;
+  while(1){
+    pthread_rwlock_wrlock(&rwlock);
+    i = g_n_seqs++; 
+    pthread_rwlock_unlock(&rwlock);
+    if(i >= n_query) break;
+    query_t *query = multi_query+i;
+    if(query->n_ambiguous > MAX_N_PERSEQ) continue;
+    alnse_core_single(index, query, aln_opt); 
+    aln_samse(index, query, aln_opt);
+ }  
 }
 
 
@@ -375,26 +501,16 @@ void alnse_core_thread(int tid, idx_t *index, int n_query, query_t *multi_query,
 int alnse_core(const opt_t *opt)
 {
     fprintf(stderr, "[alnse_core]:  Start single end alignment!\n");
-    
-    
-   
-    //clock_t t = clock();     
     double t_real = realtime();     
     aln_opt_t *aln_opt = aln_opt_init(opt);
     fprintf(stderr, "[%s]:  Reload index...\n", __func__); 
     idx_t *idx = fbwt_fmidx_restore(opt->fn_index);
     fbwt_hier_idx_restore(idx, opt->fn_index);
-    //if(opt->use_sw_extend) index->pac = pac_restore(index->bntseq); 
     fprintf(stderr, "%lf sec escaped.\n", realtime()-t_real);
     t_real = realtime();
-/*
- 
-    bwt_cal_sa_intv_on_ref(index->cbwt, index->cbwt->sa_intv);
-    exit(1);
-*/  
+  
 
 #ifdef HAVE_THREAD
-    
     pthread_attr_t attr;
     pthread_t *tid; 
     thread_aux_t *thread_data;
@@ -407,7 +523,7 @@ int alnse_core(const opt_t *opt)
       thread_data = calloc(opt->n_threads, sizeof(thread_aux_t)); 
       int j;
       for(j=0; j < opt->n_threads;++j){
-          thread_data[j].tid = j; thread_data[j].index = index;
+          thread_data[j].tid = j; thread_data[j].index = idx;
           thread_data[j].aln_opt= aln_opt;
       } 
     }       
@@ -431,6 +547,10 @@ int alnse_core(const opt_t *opt)
         g_n_seqs = 0;
         if(opt->n_threads <=1){
             alnse_core1(idx, n, multiSeqs, aln_opt); 
+            for(i = 0; i< n; ++i){
+                query_t *query = multiSeqs+i;
+                aln_samse(idx, query, opt);
+            }
         }else{
             int j;
             for (j = 0; j < opt->n_threads; ++j) {
@@ -442,10 +562,15 @@ int alnse_core(const opt_t *opt)
         }
 #else            
         alnse_core1(idx, n, multiSeqs, aln_opt); 
-#endif       
         for(i = 0; i< n; ++i){
             query_t *query = multiSeqs+i;
             aln_samse(idx, query, opt);
+        } 
+
+#endif       
+        for(i = 0; i< n; ++i){
+            query_t *query = multiSeqs+i;
+            //aln_samse(idx, query, opt);
             //printf("%s\n", query->sam->s);
             puts(query->sam->s);
             query_destroy(query);

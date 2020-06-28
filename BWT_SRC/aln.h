@@ -24,7 +24,7 @@
 //#include "bwa.h"
 
 //#define N_SEQS 0x40000
-#define N_SEQS 1
+#define N_SEQS 0x40000
 #define EXTEND_LV 0
 #define EXTEND_SW 1
 
