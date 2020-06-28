@@ -121,7 +121,9 @@ int check_exact_match(idx_t *idx)
  */
 int aln_core(char *prefix)
 {
+  fprintf(stderr, "[%s] restore fm-idx!\n", __func__); 
   idx_t *idx = fbwt_fmidx_restore(prefix); 
+  fprintf(stderr, "[%s] restore hier-idx!\n", __func__); 
   fbwt_hier_idx_restore(idx, prefix);
   //check_hier_idx(idx);
   bwtint_t i, j;

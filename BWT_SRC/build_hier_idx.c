@@ -259,7 +259,7 @@ void log_seqs(idx_t *idx, uint32_t k, uint32_t l, int n_ext)
 //...
 int build_hier_idx(const char* prefix)
 {
-  bwtint_t i, j;
+  bwtint_t i;
   fprintf(stderr, "[build_hier_idx]:  restore fm_index %s\n", prefix);
 
   idx_t *idx = fbwt_fmidx_restore(prefix);
@@ -407,7 +407,7 @@ int build_hier_idx(const char* prefix)
       cap[0].nxtcap += sub->num_relat;
       cap[0].relat += relat_len;	 
       sub->len_capidx++;
-      fprintf(stderr, "[%s]:  %u, gen rbwt finish!.\n", __func__, __LINE__);
+      if(si % 100000 == 0) fprintf(stderr, "[%s]:  %u, %u rbwt finish!.\n", __func__, __LINE__, si);
     } // End: while(idx<len_seedidx) +++++++++++++++++++++++++++
     
     fclose(fp_nxtpnt);
@@ -1443,6 +1443,77 @@ uint32_t aln_mam(int l_seq, uint8_t *seq, int s_bg, int s_ed, bwtint_t *bg, bwti
     exti++; 
   }
 }
+uint32_t aln_mem_alt(idx_t *idx ,int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed,  int max_loc)
+{
+  int64_t i, j;
+  uint32_t k = *bg;
+  uint32_t l = *ed;
+  uint32_t s_bg = *s_k;
+  uint32_t s_ed = *s_l;
+  if(k + max_loc > l) {
+    return l - k; 
+  }
+  uint32_t lid = sai_to_local_id(idx->n_jmp, idx->jmp_idx, idx->n_mod, idx->mod_idx, k, l);
+  int exti = 0;
+  int nxt_flg = 0;
+  while(s_bg >= 16 && s_ed+16 <l_seq ) { 
+    hidx_t *lidx = idx->hier_idx[exti]+lid;
+    k = lidx->bgn;
+    l = k + lidx->num-1;
+    if(exti >= 4 || k + max_loc > l) { break; }
+#ifdef DEBUG 
+        uint32_t kk = 0, ll = idx->bwt->seq_len;
+        bwt_match_exact_alt(idx->bwt, s_ed - s_bg, seq+s_bg, &kk, &ll);
+        if(k != kk || l != ll) {
+          fprintf(stderr, "[%s:%u]: exti = %u, lid = %d, (%u, %u) != (%u, %u)\n", __func__, __LINE__, exti, lid, k, l, kk, ll); 
+          exit(1); 
+        }
+#endif
+
+
+    uint32_t k0 = 0, l0 = lidx->bwt0->n_seqs, n0 = 0;
+    n0 = rbwt_exact_match(lidx->bwt0, lidx->bwt0->n_rot, idx->cnt_table, 16, seq+s_bg-16, &k0, &l0);
+    if(n0 != 1) goto end;
+    uint32_t k1 = 0, l1 = lidx->bwt1->n_seqs, n1 = 0;
+    n1 = rbwt_exact_match(lidx->bwt1, lidx->bwt1->n_rot, idx->cnt_table, 16, seq+s_ed, &k1, &l1);
+    if(n1 != 1) goto end;
+    
+    for(i = k0; i < l0; ++i){
+      uint32_t bg, ed;
+      bg = lidx->L2rel[i];
+      ed = lidx->L2rel[i+1];
+      //pairing lseq and rseq [todo: use binary search]
+      for(j = bg; j < ed; ++j) {
+        if(lidx->relat[j] == k1) {
+          break;
+        } 
+      }
+      if(j == ed) { // pairing fail
+        goto end;
+        lid = (uint32_t)-1;
+        fprintf(stderr, "[%s:%u]: error!!!\n", __func__, __LINE__);
+        exit(1); 
+      }
+      lid = lidx->nxt_idx[j];
+      nxt_flg = lidx->nxt_flg[j];
+      s_bg -= 16;
+      s_ed += 16;
+      
+      if(nxt_flg <= IS_SMLSIZ) {
+        k = lid;
+        l = lid + nxt_flg-1;
+        goto end;
+      } 
+    }
+    exti++; 
+  }
+end:
+  *bg = k;
+  *ed = l;
+  *s_k = s_bg;
+  *s_l = s_ed;
+  return l - k;  
+}
 uint32_t aln_mem(idx_t *idx ,int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed,  int max_loc)
 {
   int64_t i, j;
@@ -1586,7 +1657,7 @@ void gen_nxt_cap(struct SubBuf *subBuf,int n_jmp, uint32_t *jmp_idx, int n_mod, 
     }
   }
   */
-  fprintf(stderr, "[%s]:  %u, num_seqL = %u, num_seqR = %d, num_relat = %d\n",__func__,  __LINE__, sub->num_seqL, sub->num_seqR, sub->num_relat);	
+  //fprintf(stderr, "[%s]:  %u, num_seqL = %u, num_seqR = %d, num_relat = %d\n",__func__,  __LINE__, sub->num_seqL, sub->num_seqR, sub->num_relat);	
   for(i=0;i<sub->num_relat;i++){
     seq = sub->seqL_idxR[i][0]; // seq of lseq
     buf_idx[0] = sub->seqL_idxR[i][1]; // begin sai of mseq + rseq
@@ -1619,12 +1690,13 @@ void gen_nxt_cap(struct SubBuf *subBuf,int n_jmp, uint32_t *jmp_idx, int n_mod, 
     }
     sub->relat_sai[i][0]= buf_idx[0]; //返回的bgnIdx
     sub->relat_sai[i][1]= buf_idx[1]; //返回的endIdx
+#ifdef DEBUG    
     if(__check_idx(fm_idx, sub->relat_sai[i][0], sub->relat_sai[i][1], (sub->num_ext+1)*32+LEN_SEED) != 0) {
       fprintf(stderr, "i = %u, relat_sai = (%u, %u), pos = %u\n", i, sub->relat_sai[i][0], sub->relat_sai[i][1], bwt_sa(fm_idx->bwt, sub->relat_sai[i][0]));	
       exit(1);
     
     }
-
+#endif
     
     
     

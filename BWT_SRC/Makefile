@@ -10,23 +10,31 @@ SRC= 		utils.c malloc_wrap.c bwt.c bwtio.c is.c\
 		bitmap.c lookup.c query.c setFileName.c rbwt_alt.c
 PROG=		index aln gen_seed aln_debug test_index test_aln
 INCLUDES=	
-LIBS=		-lm -lz
+LIBS=		-lm -lz -lpthread
 SUBDIRS=	. 
 
 all: index 
 index: 
 		$(CC) $(CFLAGS) -O2 $(DFLAGS) -DMAIN_INDEX $(SRC)  build_hier_idx.c index.c -o $@ $(LIBS)
 		mv $@ ../Bin/
-aln: 
-		$(CC) $(CFLAGS) -O2 $(DFLAGS) -DMAIN_ALN $(SRC)  index.c build_hier_idx.c aln.c -o $@ $(LIBS)
+test_mem: 
+		$(CC) $(CFLAGS) -O2 $(DFLAGS) -DMAIN_ALN $(SRC)  index.c build_hier_idx.c test_aln.c -o $@ $(LIBS)
 		mv $@ ../Bin/
+aln: 
+		$(CC) $(CFLAGS) -O2 $(DFLAGS) -DMAIN_ALN -DUSE_MALLOC_WRAPPERS $(SRC)  index.c build_hier_idx.c aln.c alnse.c ksw.c sam.c -o $@ $(LIBS)
+		mv $@ ../Bin/
+
 
 index_debug: 
 		$(CC) -Wall -g $(DFLAGS) -DMAIN_INDEX $(SRC)  build_hier_idx.c index.c -o $@ $(LIBS)
 		mv $@ ../Bin/
-aln_debug: 
-		$(CC) -Wall -g $(CFLAGS) $(DFLAGS) -DMAIN_ALN -DDEBUG  $(SRC) index.c build_hier_idx.c aln.c -o $@ $(LIBS)
+test_mem_debug: 
+		$(CC) -Wall -g $(CFLAGS) $(DFLAGS) -DMAIN_ALN -DDEBUG  $(SRC) index.c build_hier_idx.c test_aln.c -o $@ $(LIBS)
 		mv $@ ../Bin/
+aln_debug: 
+		$(CC) -Wall -g $(CFLAGS) $(DFLAGS) -DMAIN_ALN -DDEBUG -DUSE_MALLOC_WRAPPERS $(SRC) index.c build_hier_idx.c aln.c alnse.c ksw.c sam.c -o $@ $(LIBS)
+		mv $@ ../Bin/
+
 
 
 

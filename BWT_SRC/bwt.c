@@ -70,15 +70,21 @@ void bwt_cal_sa(bwt_t *bwt, int intv)
 void bwt_cal_isa(bwt_t *bwt)
 {
   bwtint_t i;
-  bwtint_t *sa = bwt->sa;
+  bwtint_t isa, sa;
+  int intv = bwt->sa_intv;
   if (bwt->isa) free(bwt->isa);
-  bwtint_t *isa = (bwtint_t *)calloc(bwt->n_sa, sizeof(bwtint_t));
+  bwt->isa = (bwtint_t *)calloc(bwt->n_sa, sizeof(bwtint_t));
 
-  isa[bwt->seq_len] = 0;
-  for(i=1; i < bwt->n_sa; ++i){
-      isa[sa[i]] = i;
-  } 
-  bwt->isa = isa; 
+
+  isa = 0; sa = bwt->seq_len;
+	for (i = 0; i < bwt->seq_len; ++i) {
+		if (sa % intv == 0) bwt->isa[sa/intv] = isa;
+		--sa;
+		isa = bwt_invPsi(bwt, isa);
+	}
+	if (sa % intv == 0) bwt->isa[sa/intv] = isa;
+
+   
 }
 bwtint_t bwt_sa(const bwt_t *bwt, bwtint_t k)
 {

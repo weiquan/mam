@@ -231,6 +231,7 @@ uint32_t rbwt_exact_match(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, int l_se
   uint32_t k0 = *k, l0 = *l;
   while(k0 < l0 && rot < n_rot) {
     uint8_t c = seq[l_seq-1-rot];
+    if(c > 3) return 0;
     k0 = rbwt->rbwt[rot].C[c] + rbwt_occ(rbwt, rot, k0, c, cnt_table);
     l0 = rbwt->rbwt[rot].C[c] + rbwt_occ(rbwt, rot, l0, c, cnt_table);
     rot++; 

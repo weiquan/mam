@@ -21,9 +21,12 @@
 #include <math.h>
 #include "kstring.h"
 #include "query.h"
+#include "aln.h"
+#include "utils.h"
 
 
-
+#define USE_MALLOC_WRAPPERS
+#define UINT_MAX 0xFFFFFFFF
 #define SCORE_MATCH 1
 #define SCORE_MISMATCH -2
 #define SCORE_GAP -5
@@ -44,8 +47,7 @@ extern unsigned char nst_nt4_table[256];
  */
 void query_seq_reverse(int len, uint8_t *seq, int is_comp)
 {
-	
-    int i;
+	int i;
 	if (is_comp) {
 		for (i = 0; i < len>>1; ++i) {
 			char tmp = seq[len-1-i];
@@ -78,9 +80,18 @@ void query_destroy(query_t *query)
     if(query->seq != NULL) free(query->seq);
     if(query->rseq != NULL) free(query->rseq);
     if(query->qual != NULL) free(query->qual);
-    if(query->cigar != NULL) { free(query->cigar);}
-    if(query->seed_list != NULL) free(query->seed_list);
-    if(query->alt != NULL) free(query->alt);
+    if(query->cigar != NULL) {
+        free(query->cigar->s);
+        free(query->cigar);
+    }
+    if(query->sam != NULL ) {
+        free(query->sam->s);
+        free(query->sam);
+    }
+    //kv_destroy(query->hits[0]);
+    //kv_destroy(query->hits[1]);
+
+
     //free(query->hits[0].a);
     //free(query->hits[1].a);
     //kv_destroy(query->ordered_index);
@@ -94,7 +105,7 @@ queryio_t *query_open(const char *fn_fa)
     kseq_t *ks;
     queryio_t *qs = NULL;
 
-    qs = (queryio_t *)calloc(1, sizeof(queryio_t));
+    qs = calloc(1, sizeof(queryio_t));
     if(qs == NULL){
     	fprintf(stderr, "[query_init]: allocate mem fail!\n");
     	exit(EXIT_FAILURE);
@@ -134,8 +145,7 @@ static inline void trim_readno(kstring_t *s)
 }
 #define INIT_HIT_NUM 32
 int query_read_seq(queryio_t *qs, query_t *query)
-{
-	int i;
+{ int i;
     kseq_t *kseq = qs->kseq;      
     int l_seq = kseq_read(kseq);   
     
@@ -151,32 +161,44 @@ int query_read_seq(queryio_t *qs, query_t *query)
 
     //read seq and generate reverse seq
     query->l_seq = l_seq;
-    query->seq = (uint8_t *)calloc(l_seq, 1);
-    if(  query->seq  == NULL  ){
-        fprintf(stderr, "[query_read]: realloc mem fail, mem leak!!\n");
-        exit(1);
-    }
+    query->seq = calloc(l_seq, 1);
     query->seq_start = 0;
     query->seq_end = l_seq-1;
-    query->rseq = (uint8_t *)calloc(l_seq, 1);
-    if(  query->rseq  == NULL  ){
-        fprintf(stderr, "[query_read]: realloc mem fail, mem leak!!\n");
-        exit(1);
-    }
-    query->n_N = 0;
+    query->rseq = calloc(l_seq, 1);
+    query->n_ambiguous = 0;
     for(i = 0; i < l_seq; ++i){
-        unsigned nt = nst_nt4_table[(uint8_t)kseq->seq.s[i]];
-        if(nt>3) { ++query->n_N;} 
-        query->seq[i] = nt;        
+      unsigned nt = nst_nt4_table[(uint8_t)kseq->seq.s[i]];
+      if(nt>3) { ++query->n_ambiguous;} 
+      query->seq[i] = nt;        
     }
     memcpy(query->rseq, query->seq, l_seq);
     query_seq_reverse(l_seq, query->rseq, 1);
-    if(kseq->qual.l > 0){ query->qual = (uint8_t *)strdup(kseq->qual.s);}
+    if(kseq->qual.l > 0){
+      query->qual = (uint8_t *)strdup(kseq->qual.s);
+    }
+    query->is_gap = -1;
+    query->pos = 0xFFFFFFFF;
+    query->n_diff = -1;
+    query->strand = 3;
+    query->b0 = -1;      
+    query->b1 = -1;
+    query->cigar = calloc(1, sizeof(kstring_t));
+    query->cigar->s = calloc(128, 1);
+    query->cigar->m = 128;
+    if(query->cigar == NULL) {
+        fprintf(stderr, "[query_read_seq]: query->cigar allocate mem fail!\n");
+        exit(1);
+    }
+    query->sam = calloc(1, sizeof(kstring_t));
+    query->sam->s = calloc(128, 1);
+    query->sam->m = 128;
 
-    query->pos = (uint32_t )-1;
-    query->cigar = NULL;
-    query->alt = NULL;
-   return l_seq;
+    //init hit
+    //kv_resize(hit_t, query->hits[0], INIT_HIT_NUM);
+    //kv_resize(hit_t, query->hits[1], INIT_HIT_NUM);
+
+
+    return l_seq;
 }		/* -----  end of function query_read  ----- */
 int query_read_multiSeqs(queryio_t *qs, int n_seq, query_t *multiSeqs)
 {
@@ -214,16 +236,25 @@ uint32_t gen_mapq(uint32_t b0, uint32_t b1)
     //mapq = (uint32_t)(mapq+4.99);
     if(b0 == 0) return 0;
     double a = 255.0;
-    uint32_t mapq = a*((double)(b0-b1)/(double)b0);
+    uint32_t mapq = a*((double)abs(b0-b1)/(double)b0);
 
      
     mapq = mapq <254?mapq:254;
     return mapq; 
 }
-void print_query(query_t *q)
+void query_gen_cigar(uint32_t l_ref, const uint32_t *mixRef, query_t *query)
 {
-    int i;
-    printf("%s\n", q->name);
-    for(i = 0; i < q->l_seq; ++i) putchar("ACGTN"[q->seq[i]]);
-    putchar('\n'); 
+    query->seq_start = 0;
+    query->seq_end = query->l_seq-1;
+    if(query->pos != 0xFFFFFFFF){
+        if(query->is_gap){//have gap
+          //int ret = ed_diff_withcigar(mixRef, query->pos, query->l_seq+4, query->strand==0?query->seq:query->rseq, query->l_seq, query->n_diff, query->cigar->s, query->cigar->m, 1, COMPACT_CIGAR_STRING);
+          //if(ret == -1) fprintf(stderr, "[%s]:Erro:%s\n", __func__, query->name);
+          //fprintf(stderr, "[cigar]: %s\n", query->cigar->s);           
+        } else ksprintf(query->cigar, "%dM", query->l_seq);
+    
+    
+    } //else query->cigar = NULL;
+   
 }
+

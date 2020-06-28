@@ -63,7 +63,9 @@ typedef struct{
   int n_jmp, n_mod, max_buf;
   uint32_t *jmp_idx;  
   uint8_t *mod_idx; 
-  
+ 
+  //matrix for extending
+  uint8_t mat[25]; 
   /* snp-aware seed index */
   int n_pmap;
   uint32_t *pmap;/* preseq map */ 
@@ -102,7 +104,8 @@ typedef struct{
 
 idx_t *fbwt_fmidx_restore(const char *prefix);
 void fbwt_fmidx_destroy(idx_t *idx);
-
+idx_t *fbwt_hier_idx_restore(idx_t *idx, const char *prefix);
+void fbwt_hier_idx_destroy(idx_t *idx);
 uint32_t aln_mam(int l_seq, uint8_t *seq, int s_bg, int s_ed, bwtint_t *bg, bwtint_t *ed, idx_t *idx, int max_loc);
 uint32_t aln_mem(idx_t *idx, int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed, int max_loc);
 #endif

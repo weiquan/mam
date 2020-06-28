@@ -39,7 +39,7 @@
 
 
 
-const int SA_INTV = 1;
+const int SA_INTV = 4;
 int *global_stat_20seed0;
 int *global_stat_20seed1;
 int *global_stat_36seed;
@@ -138,30 +138,31 @@ idx_t *fbwt_hier_idx_restore(idx_t *idx, const char *prefix)
   fread(idx->mod_idx, sizeof(uint8_t) , idx->n_mod, fp_jmp);  
   err_fclose(fp_jmp);
   for(i = 0; i < n_ext; ++i) {
+    fprintf(stderr, "[%s] gen hier%u idx!\n", __func__, i);
     sprintf(fn, "%s_relat_%u.txt", prefix, i);
     FILE *fp_relat = xopen(fn, "rb"); 
     sprintf(fn, "%s_smbwt_%u.txt", prefix, i);
     FILE *fp_smbwt = xopen(fn, "rb"); 
 
-    int n_local_idx = 0, n; 
+    int n_local_idx = 0, n;
     fread(&n_local_idx, sizeof(uint32_t), 1, fp_relat);
     idx->n_hier[i] = n_local_idx; 
     idx->hier_idx[i] = calloc(n_local_idx, sizeof(hidx_t)); 
     hidx_t *hidx = idx->hier_idx[i];
     for(j = 0; j < n_local_idx; ++j) {
+      if(j % 100000 == 0)fprintf(stderr, "[%s] %u local idx has been reload!\n", __func__, j);
       fread(&hidx[j].bgn, sizeof(uint32_t), 1, fp_relat);
       fread(&hidx[j].num, sizeof(uint32_t), 1, fp_relat);
       //fprintf(stderr, "bgn = %u, num = %u\n", hidx[j].bgn, hidx[j].num);
       fread(&n, sizeof(uint32_t), 1, fp_relat);
-
       //fprintf(stderr, "n_L = %u\n", n);
       hidx[j].n_L = n;
       hidx[j].L2rel = calloc(n, sizeof(uint32_t));
       fread(hidx[j].L2rel,sizeof(uint32_t), n, fp_relat);
+      
       fread(&n, sizeof(uint32_t), 1, fp_relat);
       //fprintf(stderr, "n_R = %u\n", n);
       hidx[j].n_R = n;
-      
       hidx[j].R2rel = calloc(n, sizeof(uint32_t));
       fread(hidx[j].R2rel,sizeof(uint32_t), n, fp_relat);
       free(hidx[j].R2rel);
@@ -177,20 +178,31 @@ idx_t *fbwt_hier_idx_restore(idx_t *idx, const char *prefix)
       fread(hidx[j].nxt_idx, sizeof(uint32_t), n, fp_relat);
       hidx[j].nxt_flg = calloc(n, sizeof(uint8_t));
       fread(hidx[j].nxt_flg, sizeof(uint8_t), n, fp_relat);
-      
+    }
+
+    for(j = 0; j < n_local_idx; ++j) {
       hidx[j].bwt0 = rbwt_bwt_restore(fp_smbwt);
       hidx[j].bwt1 = rbwt_bwt_restore(fp_smbwt);
-    
     }
     err_fclose(fp_relat);
     err_fclose(fp_smbwt);
   } 
   idx->cnt_table = calloc(256, sizeof(uint32_t));
   rbwt_gen_cnt_table(idx->cnt_table); 
+  // initialize scoring matrix
+	int sa = 1, sb = 2;
+  int k;
+  uint8_t *mat = idx->mat;
+  for (i = k = 0; i < 4; ++i) {
+		for (j = 0; j < 4; ++j)
+			mat[k++] = i == j? sa : -sb;
+		mat[k++] = 0; // ambiguous base
+	}
+	for (j = 0; j < 5; ++j) mat[k++] = 0;
 
   return idx;
 }
-void fbwt_hier_idx_destroy(idx_t *idx, const char *prefix)
+void fbwt_hier_idx_destroy(idx_t *idx)
 {
   int i, j, x;
   int n_ext = 5;
@@ -311,6 +323,44 @@ void build_fmidx(const char *fn_fa, const char *prefix)
         bwt_dump_sa(fn0, bwt);
         strncpy(fn0, prefix, MAX_NAME);strcat(fn0, ".isa");
         bwt_dump_isa(fn0, bwt);
+        bwt_destroy(bwt);
+        fprintf(stderr, "[fm-idx]:  cal SA and ISA %.2f sec\n", (float)(realtime() - t));
+    }
+
+}
+void build_sa(const char *fn_fa, const char *prefix)
+{
+    double t;
+    char fn0[MAX_NAME], fn1[MAX_NAME];
+
+    gzFile fp_fa;
+    t = realtime();
+    fp_fa = gzopen(fn_fa, "r");
+    fprintf(stderr, "\n[fm-idx]:  convert genome %s  to packedfile!\n",fn_fa); 
+
+    fprintf(stderr, "[fm-idx]:  fa2pac %.2lf seconds elapse.\n", realtime() - t);
+    gzclose(fp_fa);   
+    
+    t = realtime(); 
+
+    strcat(strncpy(fn0, prefix, MAX_NAME), ".pac");
+    strcat(strncpy(fn1, prefix, MAX_NAME), ".bwt");
+    fprintf(stderr, "\n[fm-idx]:  convert pac %s to bwt %s\n", fn0, fn1);
+
+    
+    
+
+    {   
+        bwt_t *bwt;
+        t = realtime();
+        fprintf(stderr, "[fm-idx]:  generate SA and ISA from BWT\n");
+        strncpy(fn0, prefix, MAX_NAME);strcat(fn0, ".bwt");
+        bwt = bwt_restore_bwt(fn0);
+        fprintf(stderr, "[fm-idx]:  call SA\n");
+        bwt_cal_sa(bwt, SA_INTV);
+        strcat(strncpy(fn0, prefix, MAX_NAME), ".sa");
+        fprintf(stderr, "[fm-idx]:  dump SA\n");
+        bwt_dump_sa(fn0, bwt);
         bwt_destroy(bwt);
         fprintf(stderr, "[fm-idx]:  cal SA and ISA %.2f sec\n", (float)(realtime() - t));
     }
@@ -1173,9 +1223,10 @@ int fbwt_rbwt_build(idx_t *idx)
 int idx_build_core(const char *fn_fa, const char *prefix)
 {
   fprintf(stderr, "[%s]:  build fm-idx.\n", __func__);
-  //build_fmidx(fn_fa, prefix);
+  build_fmidx(fn_fa, prefix);
+  build_sa(fn_fa, prefix);
   fprintf(stderr, "[%s]:  build extend idx.\n", __func__);
-  //build_extend_idx_alt(prefix);
+  build_extend_idx_alt(prefix);
   fprintf(stderr, "[%s]:  build hier index.\n", __func__);
   build_hier_idx(prefix); 
 
