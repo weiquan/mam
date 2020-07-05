@@ -137,8 +137,10 @@ void aln_samse(idx_t *index, query_t *query, const aln_opt_t *opt)
     ksprintf(s, "%u\t", query->mapq);//Mapq
     int n_cigar = 0, *cigar = NULL;
     gen_cigar(index->pac, query->ref_start, query->ref_end, query->seq_end - query->seq_start, query->strand==0?seq:rseq+query->seq_start, index->mat, query->b0, &n_cigar, &cigar);
+    if(query->seq_start > 0) ksprintf(query->cigar, "%uS",query->seq_start);
     for(i = 0; i < n_cigar; ++i) ksprintf(query->cigar, "%u%c",cigar[i]>>4,"MID"[cigar[i]&15]);//cigar
     //for(i = 0; i < query->l_cigar; ++i) ksprintf(s, "%u%c",__parse_cigar_num(query->cigar[i]),__parse_cigar_op(query->cigar[i]));//cigar
+    if(query->seq_end < query->l_seq) ksprintf(query->cigar, "%uS",query->l_seq - query->seq_end);
     ksprintf(s, "%s", query->cigar->s);
     free(cigar);
     ksprintf(s, "\t*\t0\t0\t");//Rnext=*, Pnext=0, Tlen=0
