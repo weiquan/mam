@@ -21,10 +21,10 @@
 #include "utils.h"
 #include "query.h"
 #include "index.h"
-//#include "bwa.h"
 
-//#define N_SEQS 0x40000
+
 #define N_SEQS 0x40000
+//#define N_SEQS 1
 #define EXTEND_LV 0
 #define EXTEND_SW 1
 
@@ -123,7 +123,7 @@ static inline aln_opt_t* aln_opt_init(const opt_t *opt){
     aln_opt->l_overlap = opt->l_overlap;
     aln_opt->max_locate = opt->max_locate; 
     aln_opt->max_chain_gap = 256; 
-    aln_opt->max_extend = 10; 
+    aln_opt->max_extend = 20; 
     aln_opt->max_seed = opt->max_seed; 
     aln_opt->max_hits = 5;
     aln_opt->extend_algo = opt->extend_algo;

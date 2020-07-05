@@ -20,7 +20,7 @@ index:
 test_mem: 
 		$(CC) $(CFLAGS) -O2 $(DFLAGS) -DMAIN_ALN $(SRC)  index.c build_hier_idx.c test_aln.c -o $@ $(LIBS)
 		mv $@ ../Bin/
-aln: 
+mam: 
 		$(CC) $(CFLAGS) -O2 $(DFLAGS) -DMAIN_ALN -DUSE_MALLOC_WRAPPERS -DHAVE_THREAD $(SRC)  index.c build_hier_idx.c aln.c alnse.c ksw.c sam.c -o $@ $(LIBS)
 		mv $@ ../Bin/
 
@@ -31,8 +31,8 @@ index_debug:
 test_mem_debug: 
 		$(CC) -Wall -g $(CFLAGS) $(DFLAGS) -DMAIN_ALN -DDEBUG  $(SRC) index.c build_hier_idx.c test_aln.c -o $@ $(LIBS)
 		mv $@ ../Bin/
-aln_debug: 
-		$(CC) -Wall -g $(CFLAGS) $(DFLAGS) -DMAIN_ALN -DDEBUG -DUSE_MALLOC_WRAPPERS -DHAVE_THREAD $(SRC) index.c build_hier_idx.c aln.c alnse.c ksw.c sam.c -o $@ $(LIBS)
+mam_debug: 
+		$(CC) -Wall -g $(CFLAGS) $(DFLAGS) -DMAIN_ALN -DDEBUG -DUSE_MALLOC_WRAPPERS $(SRC) index.c build_hier_idx.c aln.c alnse.c ksw.c sam.c -o $@ $(LIBS)
 		mv $@ ../Bin/
 
 
@@ -45,5 +45,5 @@ libabwt:
 		#mv libabwt.a test
 clean:
 		rm -f gmon.out *.o a.out $(PROG) *~ *.a
-		rm -f Bin/*
+		#rm -f Bin/*
 

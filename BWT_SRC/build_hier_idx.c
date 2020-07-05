@@ -1438,6 +1438,82 @@ uint32_t aln_mam(int l_seq, uint8_t *seq, int s_bg, int s_ed, bwtint_t *bg, bwti
     exti++; 
   }
 }
+uint32_t aln_mam_alt(idx_t *idx ,int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed,  int max_loc)
+{
+  int64_t i, j;
+  uint32_t k = *bg;
+  uint32_t l = *ed;
+  uint32_t s_bg = *s_k;
+  uint32_t s_ed = *s_l;
+  if(k + max_loc > l) {
+    return l - k; 
+  }
+  uint32_t lid = sai_to_local_id(idx->n_jmp, idx->jmp_idx, idx->n_mod, idx->mod_idx, k, l);
+  int exti = 0;
+  int nxt_flg = 0;
+  while(s_bg >= 16 && s_ed+16 <l_seq ) { 
+    hidx_t *lidx = idx->hier_idx[exti]+lid;
+    k = lidx->bgn;
+    l = k + lidx->num-1;
+    if(exti >= 4 || k + max_loc > l) { break; }
+#ifdef DEBUG 
+        uint32_t kk = 0, ll = idx->bwt->seq_len;
+        bwt_match_exact_alt(idx->bwt, s_ed - s_bg, seq+s_bg, &kk, &ll);
+        if(k != kk || l != ll) {
+          fprintf(stderr, "[%s:%u]: exti = %u, lid = %d, (%u, %u) != (%u, %u)\n", __func__, __LINE__, exti, lid, k, l, kk, ll); 
+          exit(1); 
+        }
+#endif
+    uint32_t k0 = 0, l0 = lidx->bwt0->n_seqs, n0 = 0, rot0;
+    n0 = rbwt_appr_match(lidx->bwt0, lidx->bwt0->n_rot, idx->cnt_table, 16, seq+s_bg-16, &rot0, &k0, &l0);
+    if(n0 <= 0) goto end;
+    uint32_t k1 = 0, l1 = lidx->bwt1->n_seqs, n1 = 0, rot1;
+    n1 = rbwt_appr_match(lidx->bwt1, lidx->bwt1->n_rot, idx->cnt_table, 16, seq+s_ed, &rot1, &k1, &l1);
+    if(n1 <= 0) goto end;
+    int ri, li; 
+    for(k = k1; k < l1; ++k) {
+      ri = rbwt_seq_rank(lidx->bwt1, lidx->bwt1->n_rot, idx->cnt_table, rot1, k);
+      for(i = k0; i < l0; ++i){
+        li = rbwt_seq_rank(lidx->bwt0, lidx->bwt0->n_rot, idx->cnt_table, rot0, i);
+        uint32_t bg, ed;
+        bg = lidx->L2rel[li];
+        ed = lidx->L2rel[li+1];
+        //pairing lseq and rseq [todo: use binary search]
+        for(j = bg; j < ed; ++j) {
+          if(lidx->relat[j] == ri) {
+            break;
+          } 
+        }
+        if(j == ed) { // pairing fail
+          break;
+          lid = (uint32_t)-1;
+          fprintf(stderr, "[%s:%u]: error!!!\n", __func__, __LINE__);
+          exit(1); 
+        }
+        lid = lidx->nxt_idx[j];
+        nxt_flg = lidx->nxt_flg[j];
+        s_bg -= 16;
+        s_ed += 16;
+        
+        if(nxt_flg <= IS_SMLSIZ) {
+          k = lid;
+          l = lid + nxt_flg-1;
+          goto end;
+        } 
+      }
+    }
+    exti++; 
+  }
+end:
+  *bg = k;
+  *ed = l;
+  *s_k = s_bg;
+  *s_l = s_ed;
+  return l - k;  
+}
+
+
+
 uint32_t aln_mem_alt(idx_t *idx ,int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed,  int max_loc)
 {
   int64_t i, j;

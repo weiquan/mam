@@ -66,23 +66,23 @@ void aln_samhead(const opt_t *opt, bntseq_t *bntseq)
     }
     //@RG   ID:Read group id
     ksprintf(s, "@RG\tID:%s\n", opt->rg_id);
- 
-    
-
-    
-
-
     //@PG   ID:program id   PN:program name CL:cmd line DS:description VN:program version
     time_t t0 = time(NULL);
     struct tm *t = localtime(&t0);
     ksprintf(s, "@PG\tID:amam\tPN:amam\tCL:\"%s\"\tDS:%d-%d-%d\tVN:0.1beta",opt->cmd->s, t->tm_year+1900, t->tm_mon+1, t->tm_mday);
 
     printf("%s\n", s->s);
-
+    fflush(stdout); 
     free(s->s);
     free(s);
 }
-
+void print_real_coor(bntseq_t *bntseq, uint32_t pos, int l_seq)
+{
+  int rid;
+  bns_coor_pac2real(bntseq, pos, l_seq, &rid);   
+  fprintf(stderr, "%s\t", bntseq->anns[rid].name);//Rname
+  fprintf(stderr, "%lu\n", pos - bntseq->anns[rid].offset +1);//Pos
+}
 #define INIT_STR_LEN 256
 void aln_samse(idx_t *index, query_t *query, const aln_opt_t *opt)
 {
@@ -136,8 +136,8 @@ void aln_samse(idx_t *index, query_t *query, const aln_opt_t *opt)
     ksprintf(s, "%lu\t", query->pos - bntseq->anns[rid].offset +1);//Pos
     ksprintf(s, "%u\t", query->mapq);//Mapq
     int n_cigar = 0, *cigar = NULL;
-    push_cigar(index->pac, query->ref_start, query->ref_end, query->l_seq, query->strand==0?seq:rseq, index->mat, query->b0, &n_cigar, &cigar);
-    for(i = 0; i < n_cigar; ++i) ksprintf(s, "%u%c",cigar[i]>>4,"MID"[cigar[i]&15]);//cigar
+    gen_cigar(index->pac, query->ref_start, query->ref_end, query->seq_end - query->seq_start, query->strand==0?seq:rseq+query->seq_start, index->mat, query->b0, &n_cigar, &cigar);
+    for(i = 0; i < n_cigar; ++i) ksprintf(query->cigar, "%u%c",cigar[i]>>4,"MID"[cigar[i]&15]);//cigar
     //for(i = 0; i < query->l_cigar; ++i) ksprintf(s, "%u%c",__parse_cigar_num(query->cigar[i]),__parse_cigar_op(query->cigar[i]));//cigar
     ksprintf(s, "%s", query->cigar->s);
     free(cigar);
@@ -246,7 +246,7 @@ void sam_add_xa(kstring_t *s, idx_t *index, query_t *query, int is_cigar)
 #define MAX_RS 64
 //#define __get_pac(pac, l) ((pac)[(l)>>2]>>((~(l)&3)<<1)&3)
 #define __get_ref(pac, l) ((pac)[(l)>>2]>>((~(l)&3)<<1)&3)
-#define __get_metaref(pac, l) (((pac)[(l)>>3]>>4*((l)%8))&15)
+//#define __get_metaref(pac, l) (((pac)[(l)>>3]>>4*((l)%8))&15)
 void sam_add_md_nm(kstring_t *s, idx_t *index, query_t *q)
 {
     if(q->pos == 0xFFFFFFFF) return;
@@ -277,6 +277,7 @@ void sam_add_md_nm(kstring_t *s, idx_t *index, query_t *q)
                     if(bt == *seq){
                         n_match += 1;
                     }else{//MISMATCH
+                        /*
                         bntseq_t *bntseq = index->bns;
                         //uint8_t meta_bt = __get_metaref(index->mixRef->seq, ref_pos);
                         uint8_t meta_bt = __get_metaref(index->pac, ref_pos);
@@ -293,12 +294,16 @@ void sam_add_md_nm(kstring_t *s, idx_t *index, query_t *q)
                         if (n_match != 0) ksprintf(s, "%d", n_match); 
                         n_match = 0;
                         kputc("ACGTN"[bt], s); 
-               
+                        */
+                        nm += 1; 
+                        if (n_match != 0) ksprintf(s, "%d", n_match); 
+                        n_match = 0;
+                        kputc("ACGTN"[bt], s);
                     } 
                     ref_pos += 1;
                     seq += 1;
                 }
-                //if(n_match != 0) ksprintf(s, "%d", n_match);
+                if(n_match != 0) ksprintf(s, "%d", n_match);
                 break;
             case 'I':
                 nm+=n; 
@@ -319,16 +324,8 @@ void sam_add_md_nm(kstring_t *s, idx_t *index, query_t *q)
         }
         cigar += 1;
     }
-    if(n_match != 0) ksprintf(s, "%d", n_match);
-    
+    //if(n_match != 0) ksprintf(s, "%d", n_match);
     ksprintf(s, "\tNM:i:%u", nm);
-    if(n_rs >0) {
-        ksprintf(s, "\tXV:i:");
-        for(i=0; i < n_rs; ++i){    
-            if(i!=0) ksprintf(s, ",");
-            ksprintf(s, "%d", rs[i]);
-        }
-    }
     return;
 }
 #define STRAND_FORWARD 0

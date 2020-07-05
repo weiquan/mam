@@ -200,7 +200,7 @@ idx_t *fbwt_hier_idx_restore(idx_t *idx, const char *prefix)
 		mat[k++] = 0; // ambiguous base
 	}
 	for (j = 0; j < 5; ++j) mat[k++] = 0;
-
+  gen_hash_boundry(idx->fastmap_correct, idx->bwt, idx->pac);
   return idx;
 }
 void fbwt_hier_idx_destroy(idx_t *idx)

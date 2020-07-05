@@ -105,7 +105,6 @@ rbwt_t *rbwt_bwt_destroy(rbwt_t *rbwt)
 
 }
 #define LEN_EXT 16
-
 rbwt_t *rbwt_bwt_build(int n_seqs, int n_rot, uint32_t *sorted_seqs, uint32_t *sa0, uint32_t *sa1)
 {
   uint32_t i, j, k;
@@ -224,6 +223,20 @@ void rbwt_bwt_to_seqs(rbwt_t *rbwt, int n_rot, uint8_t *seq_buf, uint32_t *cnt_t
 
   return;
 }
+uint32_t rbwt_seq_rank(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, int rot, uint32_t i)
+{
+  uint32_t k = i;
+  while(rot < n_rot) {
+    uint8_t c = __get_bwt(rbwt->rbwt[rot].bwt, k);
+    k = rbwt->rbwt[rot].C[c] + rbwt_occ(rbwt, rot, k, c, cnt_table);
+    rot++; 
+  }
+  
+
+  return k;
+}
+
+
 uint32_t rbwt_exact_match(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, int l_seq, uint8_t *seq, uint32_t *k, uint32_t *l)
 {
   int i, rot;
@@ -244,7 +257,7 @@ uint32_t rbwt_exact_match(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, int l_se
 
   return 0;
 }
-uint32_t rbwt_appr_match(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, int l_seq, uint8_t *seq, uint32_t *k, uint32_t *l)
+uint32_t rbwt_appr_match(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, int l_seq, uint8_t *seq, int *ret_rot, uint32_t *k, uint32_t *l)
 {
   int i, rot;
   rot = 0; 
@@ -279,11 +292,13 @@ end:
   if(k1 < l1) {
     *k = k1;
     *l = l1;
-    return l0 - k0; 
+    *ret_rot = rot;
+    return l1 - k1; 
   } else {
     *k = k0;
     *l = l0;
-    return l0 - k0; 
+    *ret_rot = rot;
+    return l1 - k1; 
   }
   return 0;
 }

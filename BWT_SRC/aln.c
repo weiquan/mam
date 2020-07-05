@@ -38,7 +38,7 @@ opt_t *opt_init(){
     opt->fn_read2 = NULL;
     opt->rg_id = NULL;
     opt->use_sw_extend = 0;//only works in PE mode singleton pair
-    opt->l_seed = 25;
+    opt->l_seed = 20;
     opt->l_overlap = -1;
     opt->max_tlen = 550;
     opt->min_tlen = 250;
@@ -65,10 +65,10 @@ int usage()
 {
 
     fprintf(stderr, "\n"); 
-    fprintf(stderr, "Program:   snpaln\n"); 
+    fprintf(stderr, "Program:   mam\n"); 
     fprintf(stderr, "Version:   %s\n", PACKAGE_VERSION); 
     fprintf(stderr, "Contact:   %s\n\n", CONTACT); 
-    fprintf(stderr, "Usage:     amam [Options] <Index.prefix> <Read_mate1> [Read_mate2]\n\n"); 
+    fprintf(stderr, "Usage:     mam [Options] <Index.prefix> <Read_mate1> [Read_mate2]\n\n"); 
     fprintf(stderr, "Options:   -h, --help                   help\n"); 
     fprintf(stderr, "           -t, --threads       <int>    thread\n"); 
     fprintf(stderr, "           -n, --num           <int>    diff number [-1]\n"); 
@@ -80,7 +80,7 @@ int usage()
     fprintf(stderr, "           -r, --overlap       <int>    overlap length [non-overlap seeding]\n");  
     fprintf(stderr, "           -v, --ref           <int>    only seeding on primary reference  [0]\n");  
     fprintf(stderr, "           -s, --max_seed      <int>    max seed occ per [50]\n");    
-    fprintf(stderr, "           -m, --max_locate    <int>    max locate number per bwt range [200]\n");    
+    fprintf(stderr, "           -m, --max_locate    <int>    max locate number per bwt range [50]\n");    
     fprintf(stderr, "           -R, --max_best_hits <int>    max best hits  [50]\n");    
     fprintf(stderr, "           -X, --extend        <int>    extend algorithm [lv|sw]\n"); 
     
