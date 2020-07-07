@@ -742,7 +742,6 @@ int gen_hash_boundry(uint32_t hash_boundry[12], bwt_t *bwt, uint8_t *pac)
 }
 void build_bwt_is_repeat ( const char *prefix, const idx_t *idx, const uint8_t *pac)
 {
-
   int64_t i, j, ext_i;
   bwt_t *bwt = idx->bwt;
   lkt_t *fastmap = idx->fastmap; 
@@ -994,29 +993,21 @@ int __check_bwt_is_repeat(uint8_t *bwt_repeat1, int ext_i, idx_t *idx)
 */
 
 
-void build_extend_idx_alt(const char *prefix)
+void build_extend_idx_alt(const char *prefix, int init_k, int ext_k)
 {
   char fn0[MAX_NAME];
   double t = realtime();
   /* reload FM-index and packed reference */
   fprintf(stderr, "[%s]:  reload FM-index..\n", __func__);
-  int64_t i;
-  bwt_t *bwt; bntseq_t *bntseq; uint8_t *pac;
-  bwtint_t ed, st, k, l, pos, isa;
   idx_t *idx = fbwt_fmidx_restore(prefix);
-  bwt = idx->bwt;
-  pac = idx->pac;
   fprintf(stderr, "[%s]:  %.2f sec\n", __func__, realtime()-t); 
   /* generate repeat seeds and bwt range */
   fprintf(stderr, "[%s]:  gen repeat on bwt\n", __func__);
   //bp_t *ref_is_repeat; 
   //uint8_t *ref_is_repeat; 
-  uint8_t seed[L_MID_SEED];    
+
   //ref_is_repeat = (bp_t *)bp_init(bwt->seq_len);/*indicate repeat seeds on reference*/
   //ref_is_repeat = (uint8_t *)calloc(bwt->seq_len+2, sizeof(uint8_t));/* indicate repeat seed on bwt index */
-
-  int n_dup_seeds = 0;//number of dup_seeds(occurence of seed >= 2)
-  int n_seedid = 0;
   build_bwt_is_repeat(prefix, idx, idx->pac);
   fbwt_fmidx_destroy(idx);
   return;
@@ -1221,13 +1212,13 @@ int fbwt_rbwt_build(idx_t *idx)
 
 
 
-int idx_build_core(const char *fn_fa, const char *prefix)
+int idx_build_core(const char *fn_fa, const char *prefix, int init_k, int ext_k)
 {
   fprintf(stderr, "[%s]:  build fm-idx.\n", __func__);
   build_fmidx(fn_fa, prefix);
   build_sa(fn_fa, prefix);
   fprintf(stderr, "[%s]:  build extend idx.\n", __func__);
-  build_extend_idx_alt(prefix);
+  build_extend_idx_alt(prefix, init_k, ext_k);
   fprintf(stderr, "[%s]:  build hier index.\n", __func__);
   build_hier_idx(prefix); 
 
@@ -1331,7 +1322,7 @@ int index_main ( int argc, char *argv[] )
     
     
     
-    idx_build_core(argv[optind], argv[optind+1]);
+    idx_build_core(argv[optind], argv[optind+1], k, 16);
 
     
     return 0;

@@ -1513,7 +1513,14 @@ end:
 }
 
 
-
+static inline int __cmp(const void *x, const void *y)
+{
+  uint32_t *a = (uint32_t *)x;
+  uint32_t *b = (uint32_t *)y;
+  if(*a < *b) return -1;
+  else if(*a == *b) return 0;
+  else return 1;
+}
 uint32_t aln_mem_alt(idx_t *idx ,int l_seq, uint8_t *seq, int *s_k, int *s_l, bwtint_t *bg, bwtint_t *ed,  int max_loc)
 {
   int64_t i, j;
@@ -1527,11 +1534,12 @@ uint32_t aln_mem_alt(idx_t *idx ,int l_seq, uint8_t *seq, int *s_k, int *s_l, bw
   uint32_t lid = sai_to_local_id(idx->n_jmp, idx->jmp_idx, idx->n_mod, idx->mod_idx, k, l);
   int exti = 0;
   int nxt_flg = 0;
-  while(s_bg >= 16 && s_ed+16 <l_seq ) { 
+  //while(s_bg >= 16 && s_ed+16 <l_seq ) { 
+  while(exti <= 4) { 
     hidx_t *lidx = idx->hier_idx[exti]+lid;
     k = lidx->bgn;
     l = k + lidx->num-1;
-    if(exti >= 4 || k + max_loc > l) { break; }
+    if(exti >= 4 || k + max_loc > l|| s_bg<16||s_ed+16>l_seq) { goto end;}
 #ifdef DEBUG 
         uint32_t kk = 0, ll = idx->bwt->seq_len;
         bwt_match_exact_alt(idx->bwt, s_ed - s_bg, seq+s_bg, &kk, &ll);
@@ -1554,17 +1562,37 @@ uint32_t aln_mem_alt(idx_t *idx ,int l_seq, uint8_t *seq, int *s_k, int *s_l, bw
       bg = lidx->L2rel[i];
       ed = lidx->L2rel[i+1];
       //pairing lseq and rseq [todo: use binary search]
+      /*  
       for(j = bg; j < ed; ++j) {
         if(lidx->relat[j] == k1) {
           break;
         } 
       }
-      if(j == ed) { // pairing fail
+      */
+  
+      uint32_t *is_find = bsearch(&k1, lidx->relat+bg, ed - bg, sizeof(uint32_t), __cmp);
+      /*  
+      if(is_find == NULL) {
+        if(j != ed) {
+          fprintf(stderr, "[%s:%u]: key = %u, j = %u, ed = %u\n", __func__, __LINE__, is_find, j, ed);
+          for(j = bg; j < ed; ++j) {
+            fprintf(stderr, "[%s:%u]: j = %u, %u, k1 = %u\n", __func__, __LINE__, j, lidx->relat[j], k1);
+          }
+          exit(1);
+        } 
+      } else if(is_find != lidx->relat+j) {
+        fprintf(stderr, "[%s:%u]: key = %u, j = %u\n", __func__, __LINE__, (is_find-lidx->relat- bg)/4, j);
+        exit(1);
+      }
+      */
+      //if(j == ed) { // pairing fail
+      if(is_find == NULL) { // pairing fail
         goto end;
         lid = (uint32_t)-1;
         fprintf(stderr, "[%s:%u]: error!!!\n", __func__, __LINE__);
         exit(1); 
       }
+      j = (is_find-lidx->relat)/sizeof(uint32_t);
       lid = lidx->nxt_idx[j];
       nxt_flg = lidx->nxt_flg[j];
       s_bg -= 16;

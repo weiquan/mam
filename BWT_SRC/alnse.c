@@ -35,6 +35,10 @@ typedef struct{
   uint32_t bg, ed;
 } chain_t;
 typedef struct{
+  uint32_t bg, ed;
+} pair_t;
+
+typedef struct{
   int sc;
   uint32_t tb, te;
   int qb, qe;
@@ -49,6 +53,9 @@ KSORT_INIT(sai, sai_t, __sai_lt)
 
 #define __chain_lg(a, b) ((a).n == (b).n? (a).ed-(a).bg<(b).ed-(b).bg:(a).n>(b).n)
 KSORT_INIT(chain, chain_t, __chain_lg)
+
+#define __candi_lt(a, b) ((a).bg < (b).bg? (a).bg:(b).bg)
+KSORT_INIT(candi, chain_t, __chain_lg)
 
 
 #define __MAX(a, b) ((a)>(b)?(a):(b))
@@ -83,7 +90,7 @@ static inline int __lt(uint32_t *a, uint32_t *b)
 
 //#define OVERLAP_INTV 5
 //void alnse_seed_overlap(index_t *index, const uint8_t *seq,uint32_t l_seq, int l_seed, candidate_t *p_can)
-#define candi_t kvec_t(uint32_t)
+#define candi_t kvec_t(pair_t)
 
 void alnse_seed_overlap(idx_t *index, uint32_t l_seq, const uint8_t *seq, aln_opt_t *opt, candi_t *candi)
 {
@@ -149,39 +156,46 @@ void alnse_seed_overlap(idx_t *index, uint32_t l_seq, const uint8_t *seq, aln_op
       //if(k + opt->max_locate > l) {
       for(i = k; i <= __MIN(l, k+opt->max_locate); ++i) {
         p = bwt_sa(index->bwt, i);
+        pair_t pair;
+        pair.bg = p>init_bg?p-init_bg:0;
+        pair.ed = p+l_seq-init_bg;
+
 #ifdef DEBUG
-        
-        print_real_coor(index->bns, p, l_seq);
+        print_real_coor(index->bns, pair.bg, l_seq);
 #endif
-        kv_push(uint32_t, *candi, p>init_bg?p-init_bg:0); // append bgn
-        kv_push(uint32_t, *candi, p+l_seq-init_bg); // append end
+        kv_push(pair_t, *candi, pair); // append bgn
+        //kv_push(uint32_t, *candi, p>init_bg?p-init_bg:0); // append bgn
+        //kv_push(uint32_t, *candi, p+l_seq-init_bg); // append end
       }
       //}         
     }    
-    ks_introsort(uint32_t, candi->n, candi->a);
+    ks_introsort(pair_t, candi->n, candi->a);
 }
 void alnse_chain(candi_t *candi, int max_gap, int max_len, kvec_t(chain_t) *chain)
 {
   uint32_t i, j, p0, p1;
-  uint32_t *a = candi->a;
+  pair_t *a = candi->a;
   chain_t c = {0, 0, 0};
   if(candi->n == 0) return;
   kv_init(*chain);
   kv_push(chain_t, *chain, c);
-  p0 = a[0];
+  p0 = a[0].bg;
   chain->a[0].bg = p0; 
   chain->a[0].ed = p0;
   chain->a[0].n = 1; 
   for(i = 1, j = 0; i < candi->n; ++i){
-    p1 = a[i];
-    if(p0 + max_gap >= p1 && p1 - chain->a[j].bg < max_len) {
-      chain->a[j].ed = p1;
+    p1 = a[i].bg;
+    //if(p0 + max_gap >= p1 && p1 - chain->a[j].bg < max_len) {
+    if(chain->a[j].bg + max_gap >= p1) {
+      if(chain->a[j].ed < a[i].ed){
+        chain->a[j].ed = a[i].ed; 
+      }
       ++chain->a[j].n; 
     } else {
       kv_push(chain_t, *chain, c);
       j = chain->n - 1;
       chain->a[j].bg = p1; 
-      chain->a[j].ed = p1;
+      chain->a[j].ed = a[i].ed;
       chain->a[j].n = 1; 
     }
     p0 = p1;
@@ -195,6 +209,7 @@ kswr_t alnse_extend(uint8_t *pac, uint32_t ref_bg, uint32_t ref_ed, int l_seq, c
   int gapo = 5, gape = 2, xtra = KSW_XSTART;
   if(ref_ed - ref_bg >= 1024) {
     fprintf(stderr, "Ref seq len (%u) too long!", ref_ed - ref_bg); 
+    exit(1);
   }
   for(i = 0; i < ref_ed - ref_bg; ++i) {
     ref[i] = __get_pac(pac, ref_bg+i); 
