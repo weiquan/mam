@@ -23,15 +23,15 @@ void bwt_dump_sa(const char *fn, const bwt_t *bwt)
 	fwrite(&bwt->sa_intv, sizeof(bwtint_t), 1, fp);
 	fwrite(&bwt->seq_len, sizeof(bwtint_t), 1, fp);
 	fwrite(bwt->sa + 1, sizeof(bwtint_t), bwt->n_sa - 1, fp);
-	fclose(fp);
+	err_fclose(fp);
 }
 void bwt_dump_isa(const char *fn, const bwt_t *bwt)
 {
 	FILE *fp;
 	fp = xopen(fn, "wb");
 	fwrite(&bwt->n_sa, sizeof(bwtint_t), 1, fp);
-    fwrite(bwt->isa, sizeof(bwtint_t), bwt->n_sa, fp);
-	fclose(fp);
+  fwrite(bwt->isa, sizeof(bwtint_t), bwt->n_sa, fp);
+	err_fclose(fp);
 }
 
 void bwt_restore_isa(const char *fn, bwt_t *bwt)
@@ -93,7 +93,7 @@ bwt_t *bwt_restore_bwt(const char *fn)
 void bwt_destroy(bwt_t *bwt)
 {
 	if (bwt == 0) return;
-    if(bwt->isa) free(bwt->isa);
+  if(bwt->isa) free(bwt->isa);
 	free(bwt->sa); free(bwt->bwt);
 	free(bwt);
 }

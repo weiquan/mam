@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <zlib.h>
-#include <stdio.h>
 //#include "kstring.h"
 #include "kseq.h"
 #include "kvec.h"
@@ -26,70 +25,36 @@ KSEQ_INIT(gzFile, gzread)
 #define MAX_STR_LEN 1024
 #define STRAND_FORWARD 0
 #define STRAND_BACKWARD 1
+
+
+typedef kvec_t(uint32_t) vec_uint32_t;
 typedef struct{
-    uint32_t bwtidx;
-    uint32_t vs_idx;//variant_seq idx
-    const char* var_preseq;//pre seq
-    uint32_t l_aln;//non-variant align length
-    const char* extend_seed;
-    kstring_t template_seq;
-    uint32_t edit_distance;
-    uint32_t k, l;//template seq bwt range
-    uint32_t pos;
-} template_seed_t;
-static inline void template_seed_clean(template_seed_t *p)
-{
-    p->bwtidx = (uint32_t)-1;
-    p->vs_idx = (uint32_t) -1;
-    p->var_preseq = NULL;
-    p->l_aln = (uint32_t) -1;
-    p->extend_seed = NULL;
-    p->template_seq.l = p->template_seq.m = 0;
-    p->template_seq.s = NULL;
-    p->pos = (uint32_t )-1;
-    p->k = (uint32_t) -1;
-    p->l = (uint32_t) -1;
-    p->pos = (uint32_t) -1;
-    p->edit_distance = (uint32_t) -1;
-}
-static  void log_template_seed(template_seed_t *ts)
-{
-    fprintf(stderr, "\nbwtindex = %u\n", ts->bwtidx);
-    fprintf(stderr, "vs_idx = %u\n", ts->vs_idx);
-    fprintf(stderr, "l_aln = %u\n", ts->l_aln);
-    fprintf(stderr, "template_seq = %s\n", ts->template_seq.s);
-    fprintf(stderr, "template seed bwt index= %u-%u\n", ts->k, ts->l);
-    fprintf(stderr, "pos=%u\n", ts->pos);
-}
-typedef struct{
-    int offset;//seed start pos on read
-    int l;//seed length
-    uint32_t pos;//reference position
-    int n;
-    template_seed_t *ts;
-} seed_t;
-typedef struct{
-    uint32_t pos;
-    char *cigar;
-} aln_t;
-typedef struct{
-    //Seq info
     char *name, *comment;
     int l_seq;  
     uint8_t *seq, *rseq, *qual;    
-    int n_N;
-    //seed info
-    int n_seed;
-    seed_t *seed_list;
-    //alignment info
     uint32_t seq_start, seq_end;
-    uint32_t pos;//primary alignment
-    int l_cigar;
-    char *cigar;
-    int n_alt;
-    aln_t *alt;//alternative alignments
-    //sam
-    //kstring_t *sam;
+    uint32_t ref_start, ref_end;
+    //candidate_t candidate;
+    //candidate_t rcandidate;
+
+    int b0, b1;//best and secondary  hit score
+    //best hit
+    int flag;
+    uint32_t pos;
+
+    kstring_t *cigar;
+    int strand;
+    uint8_t n_diff;
+    uint8_t is_gap;
+    int n_indel;
+    int n_mismatch;
+    uint8_t mapq;
+    int n_ambiguous;
+    //multi hits
+    //hits_t hits[2];
+    //vec_uint_t ordered_index;
+    //vec_uint_t unique_index;
+    kstring_t *sam;
 } query_t;
 
 
@@ -111,6 +76,7 @@ int query_read_seq(queryio_t *qs, query_t *query);
 int query_read_multiSeqs(queryio_t *qs, int n_seq, query_t *multiSeqs);
 int query_read_multiPairedSeqs(queryio_t *qs[], int n_seq, query_t *multiSeqs);
 
+//void query_set_hits(query_t *query, int max_hits, hits_t *hits0, hits_t* hits1);
 uint32_t gen_mapq(uint32_t b0, uint32_t b1);
-void print_query(query_t *q);
+
 #endif

@@ -25,8 +25,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-
-#include <stdio.h>
+#include <emmintrin.h>
 #include "ksw.h"
 
 #ifdef __GNUC__
@@ -39,6 +38,11 @@
 
 const kswr_t g_defr = { 0, -1, -1, -1, -1, -1, -1 };
 
+struct _kswq_t {
+	int qlen, slen;
+	uint8_t shift, mdiff, max, size;
+	__m128i *qp, *H0, *H1, *E, *Hmax;
+};
 
 /**
  * Initialize the query data structure
@@ -51,19 +55,17 @@ const kswr_t g_defr = { 0, -1, -1, -1, -1, -1, -1 };
  *
  * @return       Query data structure
  */
-//kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t *mat)
-kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t *mat, kswq_t *q)
+kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t *mat)
 {
-	
-    //kswq_t *q;
+	kswq_t *q;
 	int slen, a, tmp, p;
-    size = size > 1? 2 : 1;
+
+	size = size > 1? 2 : 1;
 	p = 8 * (3 - size); // # values per __m128i
 	slen = (qlen + p - 1) / p; // segmented length
-//fprintf(stderr, "ksw_qinit, (kswq_t*)malloc(sizeof(kswq_t) + 256 + 16 * slen * (m + 4))"); 
-    //q = (kswq_t*)malloc(sizeof(kswq_t) + 256 + 16 * slen * (m + 4)); // a single block of memory
-    q->qp = (__m128i*)(((size_t)q + sizeof(kswq_t) + 15) >> 4 << 4); // align memory
-    q->H0 = q->qp + slen * m;
+	q = (kswq_t*)malloc(sizeof(kswq_t) + 256 + 16 * slen * (m + 4)); // a single block of memory
+	q->qp = (__m128i*)(((size_t)q + sizeof(kswq_t) + 15) >> 4 << 4); // align memory
+	q->H0 = q->qp + slen * m;
 	q->H1 = q->H0 + slen;
 	q->E  = q->H1 + slen;
 	q->Hmax = q->E + slen;
@@ -79,10 +81,8 @@ kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t 
 	q->mdiff += q->shift; // this is the difference between the min and max scores
 	// An example: p=8, qlen=19, slen=3 and segmentation:
 	//  {{0,3,6,9,12,15,18,-1},{1,4,7,10,13,16,-1,-1},{2,5,8,11,14,17,-1,-1}}
-
-
-    if (size == 1) {
-        int8_t *t = (int8_t*)q->qp;
+	if (size == 1) {
+		int8_t *t = (int8_t*)q->qp;
 		for (a = 0; a < m; ++a) {
 			int i, k, nlen = slen * p;
 			const int8_t *ma = mat + a * m;
@@ -100,9 +100,7 @@ kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t 
 					*t++ = (k >= qlen? 0 : ma[query[k]]);
 		}
 	}
-
-
-    return q;
+	return q;
 }
 
 kswr_t ksw_u8(kswq_t *q, int tlen, const uint8_t *target, int _gapo, int _gape, int xtra) // the first gap costs -(_o+_e)
@@ -329,59 +327,28 @@ static void revseq(int l, uint8_t *s)
 		t = s[i], s[i] = s[l - 1 - i], s[l - 1 - i] = t;
 }
 
-kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry, kswq_t *kswq[2])
+kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry)
 {
- 
-/*  
-    int i;
-    fprintf(stderr, "ksw_align\n");
-    for(i = 0; i < qlen; ++i) {
-       fprintf(stderr, "%u", query[i]); 
-    }    
-    fprintf(stderr, "\n");
-    for(i = 0; i < tlen; ++i) {
-       fprintf(stderr, "%u", target[i]); 
-    }    
-    
-    fprintf(stderr, "\n");
-    
-*/
- 
-    int size;
+	int size;
 	kswq_t *q;
 	kswr_t r, rr;
 	kswr_t (*func)(kswq_t*, int, const uint8_t*, int, int, int);
 
-    q = (qry && *qry)? *qry : ksw_qinit((xtra&KSW_XBYTE)? 1 : 2, qlen, query, m, mat, kswq[0]);
+	q = (qry && *qry)? *qry : ksw_qinit((xtra&KSW_XBYTE)? 1 : 2, qlen, query, m, mat);
 	if (qry && *qry == 0) *qry = q;
 	func = q->size == 2? ksw_i16 : ksw_u8;
-    size = q->size;
-    r = func(q, tlen, target, gapo, gape, xtra);
-	//if (qry == 0) free(q);
+	size = q->size;
+	r = func(q, tlen, target, gapo, gape, xtra);
+	if (qry == 0) free(q);
 	if ((xtra&KSW_XSTART) == 0 || ((xtra&KSW_XSUBO) && r.score < (xtra&0xffff))) return r;
-	
-    
-    revseq(r.qe + 1, query); 
-    revseq(r.te + 1, target); 
-    // +1 because qe/te points to the exact end, not the position after the end
-	//q = ksw_qinit(size, r.qe + 1, query, m, mat, kswq[1]);
-    q = ksw_qinit(size, r.qe + 1, query, m, mat, kswq[1]);
-    rr = func(q, tlen, target, gapo, gape, KSW_XSTOP | r.score);
-	revseq(r.qe + 1, query); 
-    //revseq(r.te + 1, target);
-    //free(q);
+	revseq(r.qe + 1, query); revseq(r.te + 1, target); // +1 because qe/te points to the exact end, not the position after the end
+	q = ksw_qinit(size, r.qe + 1, query, m, mat);
+	rr = func(q, tlen, target, gapo, gape, KSW_XSTOP | r.score);
+	revseq(r.qe + 1, query); revseq(r.te + 1, target);
+	free(q);
 	if (r.score == rr.score)
 		r.tb = r.te - rr.te, r.qb = r.qe - rr.qe;
 	return r;
-}
-
-kswr_t ksw_align_L(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry, kswq_t *kswq[2])
-{
-    return ksw_align(qlen, query, tlen, target, m, mat, gapo, gape, xtra, qry, kswq);
-}
-kswr_t ksw_align_R(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry, kswq_t *kswq[2])
-{
-    return ksw_align(qlen, query, tlen, target, m, mat, gapo, gape, xtra, qry, kswq);
 }
 
 /********************

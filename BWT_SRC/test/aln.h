@@ -1,12 +1,12 @@
 /*
  * =====================================================================================
  *
- *       Filename:  debug.h
+ *       Filename:  aln.h
  *
- *    Description:  
+ *    Description:  O
  *
  *        Version:  1.0
- *        Created:  2018年04月02日 16时35分25秒
+ *        Created:  2017年11月06日 09时12分02秒
  *       Revision:  none
  *       Compiler:  gcc
  *
@@ -15,8 +15,12 @@
  *
  * =====================================================================================
  */
-#define fprintf __fprintf_no
-static inline int __fprintf_no(FILE *stream, const char *format, ...)
-{
-    return 0;
-}
+#ifndef __ALN_H
+#define __ALN_H
+#include <stdint.h>
+typedef struct{
+    uint32_t pos;
+    
+} aln_t;
+
+#endif

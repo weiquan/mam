@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <zlib.h>
 #include "malloc_wrap.h"
+
 #ifdef __GNUC__
 // Tell GCC to validate printf format string and args
 #define ATTRIBUTE(list) __attribute__ (list)

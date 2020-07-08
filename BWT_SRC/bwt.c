@@ -69,15 +69,22 @@ void bwt_cal_sa(bwt_t *bwt, int intv)
 }
 void bwt_cal_isa(bwt_t *bwt)
 {
-        bwtint_t i;
-        bwtint_t *sa = bwt->sa;
-        bwtint_t *isa = (bwtint_t *)calloc(bwt->n_sa, sizeof(bwtint_t));
+  bwtint_t i;
+  bwtint_t isa, sa;
+  int intv = bwt->sa_intv;
+  if (bwt->isa) free(bwt->isa);
+  bwt->isa = (bwtint_t *)calloc(bwt->n_sa, sizeof(bwtint_t));
 
-        isa[bwt->seq_len] = 0;
-        for(i=1; i < bwt->n_sa; ++i){
-            isa[sa[i]] = i;
-        } 
-        bwt->isa = isa; 
+
+  isa = 0; sa = bwt->seq_len;
+	for (i = 0; i < bwt->seq_len; ++i) {
+		if (sa % intv == 0) bwt->isa[sa/intv] = isa;
+		--sa;
+		isa = bwt_invPsi(bwt, isa);
+	}
+	if (sa % intv == 0) bwt->isa[sa/intv] = isa;
+
+   
 }
 bwtint_t bwt_sa(const bwt_t *bwt, bwtint_t k)
 {
@@ -247,32 +254,32 @@ int bwt_match_exact(const bwt_t *bwt, int len, const ubyte_t *str, bwtint_t *sa_
 }
 int bwt_match_exact_alt(const bwt_t *bwt, int len, const ubyte_t *str, bwtint_t *k0, bwtint_t *l0)
 {
-   int i;
-    int ret =1;
+  int i;
+  int ret =1;
 	bwtint_t k, l, ok, ol;
 	k = *k0; l = *l0;
 	for (i = len - 1; i >= 0; --i) {
-		ubyte_t c = str[i];
-		if (c > 3){             
-            ret = 0; // there is an N here. no match
-            break;
-        }
-        bwt_2occ(bwt, k - 1, l, c, &ok, &ol);
-		k = bwt->L2[c] + ok + 1;
-		l = bwt->L2[c] + ol;
-        
-        if (k > l) {
-            ret = 0; // no match
-	        break;
-        }
+    ubyte_t c = str[i];
+    if (c > 3){             
+      ret = 0; // there is an N here. no match
+      break;
     }
+    bwt_2occ(bwt, k - 1, l, c, &ok, &ol);
+    k = bwt->L2[c] + ok + 1;
+    l = bwt->L2[c] + ol;
+      
+    if (k > l) {
+        ret = 0; // no match
+      break;
+    }
+  }
 
-    if(ret ){
-	    *k0 = k; *l0 = l;
-        return l - k + 1;
-    }else{
-        return ret;
-    }
+  if(ret ){
+    *k0 = k; *l0 = l;
+      return l - k + 1;
+  }else{
+      return ret;
+  }
 
 
 }

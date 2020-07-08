@@ -7,12 +7,6 @@
 #define KSW_XSTOP  0x20000
 #define KSW_XSUBO  0x40000
 #define KSW_XSTART 0x80000
-#include <emmintrin.h>
-struct _kswq_t {
-	int qlen, slen;
-	uint8_t shift, mdiff, max, size;
-	__m128i *qp, *H0, *H1, *E, *Hmax;
-};
 
 struct _kswq_t;
 typedef struct _kswq_t kswq_t;
@@ -66,12 +60,8 @@ extern "C" {
 	 * freed after the last call. Note that qry can equal 0. In this case, the
 	 * query profile will be deallocated in ksw_align().
 	 */
-	//kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry);
-kswr_t ksw_align_L(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry, kswq_t *kswq[2]);
-kswr_t ksw_align_R(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry, kswq_t *kswq[2]);
+	kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry);
 
-kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry, kswq_t *kswq[2]);
-//kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry, kswq_t *kswq);
 	int ksw_extend(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int w, int h0, int *_qle, int *_tle);
 	int ksw_global(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int w, int *_n_cigar, uint32_t **_cigar);
 
