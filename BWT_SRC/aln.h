@@ -122,7 +122,7 @@ static inline aln_opt_t* aln_opt_init(const opt_t *opt){
     aln_opt->seed_only_ref = opt->ref;
     aln_opt->l_overlap = opt->l_overlap;
     aln_opt->max_locate = opt->max_locate; 
-    aln_opt->max_chain_gap = 256; 
+    aln_opt->max_chain_gap = 16; 
     aln_opt->max_extend = 20; 
     aln_opt->max_seed = opt->max_seed; 
     aln_opt->max_hits = 5;
