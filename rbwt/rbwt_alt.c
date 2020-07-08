@@ -19,9 +19,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "ksort.h"
-//#include "bwt.h"
 #include "rbwt_alt.h"
-#define USE_MALLOC_WRAPPERS
 KSORT_INIT_GENERIC(uint32_t)
 #define SWAP(type_t, a, b) do{type_t x=(a); (a)=(b); (b)=x;} while(0)
 void rbwt_gen_cnt_table(uint32_t cnt_table[])
@@ -74,7 +72,7 @@ rbwt_t *rbwt_bwt_destroy(rbwt_t *rbwt)
 
 rbwt_t *rbwt_bwt_build(int n_seqs, uint32_t *sorted_seqs, uint32_t *sa0, uint32_t *sa1)
 {
-  uint32_t i, j;
+  uint32_t i, j, k;
   uint32_t *last_sa, *cur_sa;
   rbwt_t *rbwt = rbwt_bwt_init(n_seqs, LEN_SEQ);
   rbwt_gen_cnt_table(rbwt->cnt_table);
@@ -85,6 +83,9 @@ rbwt_t *rbwt_bwt_build(int n_seqs, uint32_t *sorted_seqs, uint32_t *sa0, uint32_
   for(j = 0; j < n_seqs; ++j){
     uint32_t c = sorted_seqs[j]&3;
     __set_bwt(rbwt->rbwt[0].bwt, j, c);
+    if(j % OCC_INTV == 0) {
+      for(k = 0; k < NT_SIZE; ++k) rbwt->rbwt[0].Occ[j/OCC_INTV][k] = rbwt->rbwt[0].C[k];
+    }
     rbwt->rbwt[0].C[c]++;
   }
   rbwt_accumulate_C(NT_SIZE, rbwt->rbwt[0].C);
@@ -101,15 +102,16 @@ rbwt_t *rbwt_bwt_build(int n_seqs, uint32_t *sorted_seqs, uint32_t *sa0, uint32_
     for(j=0; j< NT_SIZE; ++j) rbwt->rbwt[i].C[j] = 0;
     for(j = 0; j < n_seqs; ++j){
       uint32_t c = __get_nt(sorted_seqs[cur_sa[j]], i);
-      //int n_alned = (n_seqs+NT_PER_BYTE-1)/NT_PER_BYTE*NT_PER_BYTE;
       __set_bwt(rbwt->rbwt[i].bwt, j, c);
+      if(j % OCC_INTV == 0){ 
+        for(k = 0; k < NT_SIZE; ++k) 
+          rbwt->rbwt[i].Occ[j/OCC_INTV][k] = rbwt->rbwt[i].C[k];
+      }
       rbwt->rbwt[i].C[c]++;
     }
     rbwt_accumulate_C(NT_SIZE, rbwt->rbwt[i].C);
     SWAP(uint32_t *, last_sa, cur_sa); 
   }
-  //fprintf(stderr, "\n==Iter = %u\n", i-1);
-  //log_seq16array(n, last_sa, lext, i-1);
   return rbwt;
 }
 
@@ -168,67 +170,12 @@ void rbwt_gen_C_32(uint8_t *bwt, int n_seqs, uint32_t C[][NT_SIZE], uint32_t (*O
 
 
 
-/*  
-fprintf(stderr, "\n----------------------\n");
-if( DataNum <= 254*256 ) siz_C = 2 ;
-if( DataNum > 254*256 ) siz_C = 4 ;
-int rng_num = ((DataNum+253) /254) ;
-int len_sum = (8+ siz_C) *( rng_num /8) + rng_num %8 + siz_C ;
-for(__k =0; __k < 8; __k++){
-    for(__i = 0; __i < 16; ++__i){
-        fprintf(stderr, "rbwt_gen_C_all = %u   \t", __i);
-        __j = 16*__k*len_sum + len_sum*__i;
-        for(__l = 0; __l < len_sum; ++__l){
-            fprintf(stderr, "%u\t", C[__j+__l]);
-        }
-        fprintf(stderr, "\n");
-    }
-    fprintf(stderr, "-------------------\n\n");
-}
-fprintf(stderr, "\n+++++++++++++++++\n");
-}*/
-//+++++++++++++++++++++++++++++++
 void rbwt_gen_C_all(const uint8_t* bwt, int n_data, uint8_t *C)
 {
-    //fprintf(stderr, "[rbwt_gen_C_all]\n");
-    /*  
-    if(n_data<=NO_BWT_SUM_SIZE) {
-        fprintf(stderr, "Error in rbwt_gen_C_all!!\n"); 
-        exit(1);
-    } else if(n_data <= 255) rbwt_gen_C_8(bwt, n_data, (uint8_t (*)[17])C);
-    else rbwt_gen_C2(bwt, n_data, C);
-    */
     if(n_data <= 255) rbwt_gen_C_8(bwt, n_data, (uint8_t (*)[17])C);
     return;
 }
 
-//++++++++++++++++++++++++++++++++++++++
-/*
-if(n_data == 419){
-int n_data = n_data;
-int siz_C; 
-uint32_t __i, __j, __k, __l;
-fprintf(stderr, "\n----------------------\n");
-if( n_data <= 254*256 ) siz_C = 2 ;
-if( n_data > 254*256 ) siz_C = 4 ;
-int rng_num = ((n_data+253) /254) ;
-int len_sum = (8+ siz_C) *( rng_num /8) + rng_num %8 + siz_C ;
-for(__k =0; __k < 8; __k++){
-    for(__i = 0; __i < 16; ++__i){
-        fprintf(stderr, "rbwt_gen_C2 =  %4u   \t", __i);
-        __j = 16*__k*len_sum + len_sum*__i;
-        for(__l = 0; __l < len_sum; ++__l){
-            fprintf(stderr, "%u\t", C[__j+__l]);
-        }
-        fprintf(stderr, "\n");
-    }
-    fprintf(stderr, "-------------------\n\n");
-}
-fprintf(stderr, "\n+++++++++++++++++\n");
-}
-*/
-//++++++++++++++++++++++++++++++++++++++
-//生成序列
 uint32_t __dna_count(uint8_t *bwt, uint32_t k , uint32_t l, uint8_t c)
 {
   uint32_t i, n;
@@ -264,49 +211,6 @@ uint32_t __dna_count2(uint8_t *bwt, uint32_t k , uint32_t l, uint8_t c, uint32_t
 
 
 
-/*  
-void rbwt_test_smbwt(struct SubBuf *sub, int flg)
-{
-    uint8_t *seq_buf, *seqs0, *bwt;
-    uint32_t num, *sort_seq;
-    if(flg == 0){
-        bwt = sub->bwt_seqL;
-        num = sub->num_seqL;
-        sort_seq = sub->sortL;
-    } else if(flg == 1){
-        bwt = sub->bwt_seqR;
-        num = sub->num_seqR;
-        sort_seq = sub->sortR;
-    }
-    seq_buf = malloc(16*num*2);  
-    rbwt_test_rbwt(bwt, num, seq_buf);
-    int i, j;
-    seqs0 = seq_buf+num*16;
-    for(i = 0; i < num; ++i){
-        uint8_t ch;
-        for(j = 0; j < 16; ++j){
-            seqs0[i*16+j] = (sort_seq[i]>>((15-j)*2))&3;      
-        }
-    }
-
-    for(i = 0; i < num; ++i){
-        for(j = 0; j < 16; ++j){
-            //printf("[%u, %u]: %u %u\n", i, j, seq_buf[i*16+j], seqs0[i*16+j]);
-            if(seq_buf[i*16+j] != seqs0[i*16+j]){
-                fprintf(stderr, "test_smbwt error!!!!\n"); 
-                exit(1);
-            
-            }  
-        }
-       
-    
-    
-    }
-    free(seq_buf);
-    return;
-hi IndentGuidesEven ctermbg=lightgrey
-}
-*/
 void rbwt_test_build()
 {
   int n_seqs = 500;
@@ -322,7 +226,7 @@ void rbwt_test_build()
   uint32_t *sa1 = calloc(n_seqs, sizeof(uint32_t));
   rbwt_t *rbwt = rbwt_bwt_build(n_seqs, pac_seqs, sa0, sa1);
   uint8_t *seqs1 = calloc(n_seqs*LEN_SEQ, sizeof(uint8_t));
-  rbwt_test_rbwt(rbwt, seqs1);
+  rbwt_bwt_to_seqs(rbwt, seqs1);
   rbwt_bwt_destroy(rbwt); 
   
   uint8_t *seqs0 = calloc(n_seqs*LEN_SEQ, sizeof(uint8_t));
@@ -353,16 +257,11 @@ void rbwt_test_build()
 }
 uint32_t rbwt_occ(rbwt_t *rbwt, int rot, uint32_t i, uint8_t c)
 {
-  /*
-  int n_seqs = rbwt->n_seqs;
-  uint32_t n_alned = (n_seqs+NT_PER_BYTE-1)/NT_PER_BYTE*NT_PER_BYTE;
-  uint32_t bg = n_alned*rot;
-  uint32_t occ = rbwt->Occ[rot][i/256][c] + __dna_count2(bwt, bg + i/OCC_INTV*OCC_INTV, bg+i, c, rbwt->cnt_table);
-  */
-  uint32_t occ = rbwt->rbwt[rot].Occ[i/256][c] + __dna_count2(rbwt->rbwt[rot].bwt, i/OCC_INTV*OCC_INTV, i, c, rbwt->cnt_table);
+  uint32_t occ = rbwt->rbwt[rot].Occ[i/OCC_INTV][c] + __dna_count2(rbwt->rbwt[rot].bwt, i/OCC_INTV*OCC_INTV, i, c, rbwt->cnt_table);
+  //fprintf(stderr, "occ0= %u, occ1 = %u, occ = %u, i = %u\n", rbwt->rbwt[rot].Occ[i/OCC_INTV][c], __dna_count2(rbwt->rbwt[rot].bwt, i/OCC_INTV*OCC_INTV, i, c, rbwt->cnt_table),__dna_count2(rbwt->rbwt[rot].bwt, 0, i, c, rbwt->cnt_table),i );
   return occ;
 }
-void rbwt_test_rbwt(rbwt_t *rbwt, uint8_t *seq_buf)
+void rbwt_bwt_to_seqs(rbwt_t *rbwt, uint8_t *seq_buf)
 {
   //恢复序列算法
   int i, rot;
@@ -371,12 +270,16 @@ void rbwt_test_rbwt(rbwt_t *rbwt, uint8_t *seq_buf)
   for(i = 0; i < rbwt->n_seqs; ++i){
     uint32_t k = i;
     for(rot=0; rot< rbwt->n_rot; ++rot){
-      //uint32_t n_alned = (n_seqs+NT_PER_BYTE-1)/NT_PER_BYTE*NT_PER_BYTE;
-      //uint32_t rot_bg = n_alned*rot;
-      //uint32_t ii = rot_bg + k;
       uint8_t c = __get_bwt(rbwt->rbwt[rot].bwt, k); 
       seq[LEN_SEQ-1-rot] = c; 
-      uint32_t occ = __dna_count2(rbwt->rbwt[rot].bwt, 0, k, c, rbwt->cnt_table);
+      uint32_t occ = rbwt_occ(rbwt, rot, k, c);
+#ifdef DEBUG  
+      uint32_t occ1 = __dna_count2(rbwt->rbwt[rot].bwt, 0, k, c, rbwt->cnt_table); 
+      if(occ != occ1) {
+        fprintf(stderr, "[occ != occ1], occ = %u, occ1 = %u, k = %u\n", occ, occ1, k);
+        exit(1); 
+      }
+#endif
       k = rbwt->rbwt[rot].C[c] + occ;
     }
     memcpy(seq_buf+i*16, seq, 16); 

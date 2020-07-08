@@ -58,7 +58,7 @@ static int aln_usage()
 }
 
 extern unsigned char nst_nt4_table[256];
-#define N_SEQS 10000
+
 const int L0 = 12;
 const int L1 = 20;
 const int L_SEED = 36;
