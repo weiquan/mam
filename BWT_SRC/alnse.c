@@ -120,18 +120,20 @@ void alnse_seed_overlap(idx_t *index, uint32_t l_seq, const uint8_t *seq, aln_op
       */
       k = 1; //k=0???
       l = bwt->seq_len;
-      uint32_t iter = lkt_seq2LktItem(seq, seed_start+8, seed_end-1);
+      uint32_t iter = lkt_seq2LktItem(seq, seed_start+l_init-12, seed_end-1);
 #ifdef DEBUG
       uint32_t __k = 1, __l = bwt->seq_len, __n, __k0, __l0;
-      __n = bwt_match_exact_alt(index->bwt, 12, seq+init_bg+8, &__k, &__l);
+      __n = bwt_match_exact_alt(index->bwt, 12, seq+init_bg+l_init-12, &__k, &__l);
 
-      if(__n >0 && iter == 0xFFFFFFFF){
+      if(__n >0 && iter != 0xFFFFFFFF){
         __k0 = index->fastmap->item[iter];
         __l0 = index->fastmap->item[iter+1];
-        __l0 -= get_12mer_correct(index->fastmap_correct, __l0-1);
-        fprintf(stderr, "12 mer search  fail!!\n");
-        fprintf(stderr, "seed_st = %u, k = %u, l = %u, __k =%u, __l = %u, [%u, %u],\n", seed_start,__k0, __l0, __k, __l, init_bg, init_ed);
-        exit(1);
+        __l0 -= get_12mer_correct(index->fastmap_correct, __l0-1)+1;
+        if(__k0 != __k || __l0 != __l) {
+          fprintf(stderr, "12 mer search  fail!!\n");
+          fprintf(stderr, "seed_st = %u, k = %u, l = %u, __k =%u, __l = %u, [%u, %u],\n", seed_start,__k0, __l0, __k, __l, init_bg, init_ed);
+          exit(1);
+        }
       } 
     
 
@@ -142,10 +144,13 @@ void alnse_seed_overlap(idx_t *index, uint32_t l_seq, const uint8_t *seq, aln_op
       k = index->fastmap->item[iter];
       l = index->fastmap->item[iter+1];
       l -= get_12mer_correct(index->fastmap_correct, l-1)+1;
-
+      /*  
+      k = 1, l = bwt->seq_len;
+      n = bwt_match_exact_alt(index->bwt, l_init, seq+init_bg, &k, &l);
+      */
      
       if(k > l) continue;
-      n = bwt_match_exact_alt(index->bwt, 8, seq+init_bg, &k, &l);
+      n = bwt_match_exact_alt(index->bwt, l_init-12, seq+init_bg, &k, &l);
       if(n == 0) continue;
       if(n > IS_SMLSIZ) {
         aln_mem_alt(index, l_seq, seq, &init_bg, &init_ed, &k, &l, IS_SMLSIZ);       
@@ -180,8 +185,8 @@ void alnse_chain(candi_t *candi, int max_gap, int max_len, kvec_t(chain_t) *chai
   kv_init(*chain);
   kv_push(chain_t, *chain, c);
   p0 = a[0].bg;
-  chain->a[0].bg = p0; 
-  chain->a[0].ed = p0;
+  chain->a[0].bg = a[0].bg; 
+  chain->a[0].ed = a[0].ed;
   chain->a[0].n = 1; 
   for(i = 1, j = 0; i < candi->n; ++i){
     p1 = a[i].bg;
@@ -246,7 +251,9 @@ int gen_cigar(uint8_t *pac, uint32_t ref_bg, uint32_t ref_ed, int l_seq, const u
     ref[i] = __get_pac(pac, ref_bg+i); 
   }
 
-  int w = ((l_seq>>1)*mat[0]-gapo)/gape;
+  //int w = ((l_seq>>1)*mat[0]-gapo)/gape;
+  //int w = (l_seq*mat[0]-minsc-gapo)/gape;
+  int w = 50;
   ksw_global(l_seq, seq, ref_ed-ref_bg, ref, 5, mat, gapo, gape, w, n_cigar, cigar);
   /*  
   fprintf(stderr, "sc = %d, cigar:", minsc);
@@ -571,6 +578,7 @@ int alnse_core(const opt_t *opt)
     fprintf(stderr, "[%s]:  Reload index...\n", __func__); 
     idx_t *idx = fbwt_fmidx_restore(opt->fn_index);
     fbwt_hier_idx_restore(idx, opt->fn_index);
+    //__check_search_12mer(idx);
     fprintf(stderr, "%lf sec escaped.\n", realtime()-t_real);
     t_real = realtime();
   

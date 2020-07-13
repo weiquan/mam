@@ -24,7 +24,7 @@
 //#include "variants.h"
 #include "bwt.h"
 #include "bntseq.h"
-#include "bitmap.h"
+//#include "bitmap.h"
 #include "lookup.h"
 #include "rbwt_alt.h"
 typedef struct{
@@ -74,7 +74,7 @@ typedef struct{
   uint32_t *sai;/* sa index */
   
   /* approximate match */
-  bp_t *is_multiseeds;/*is_multiseeds[i] = 1 if Reference[sa[i]:sa[i]+20] is multi location seeds */
+  //bp_t *is_multiseeds;/*is_multiseeds[i] = 1 if Reference[sa[i]:sa[i]+20] is multi location seeds */
   uint32_t n_isa2seq16;
   uint32_t* isa2seq16; /* isa2seq16[i] = start of seq16s, i is occ of 1 in is_multiseeds before isa*/
   uint32_t n_seq16s;

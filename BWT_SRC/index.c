@@ -495,11 +495,9 @@ void gen_seedidx(uint8_t *bwt_is_repeat, idx_t *idx, int ext_i, const char*prefi
       }
       tot_idx = ed_idx  - bg_idx;
       glb_idx = ed_idx;
-
-      if(cur_flag == FLAG_UNIQ) continue; 
-      //print begin index and total number of index
 #ifdef DEBUG
-      if(!__check_seedidx(bg_idx, tot_idx, 20+32*ext_i, idx)){
+/*  
+      if(!__check_seedidx(bg_idx, tot_idx, init_k+ext_k*ext_i*2, idx)){
         fprintf(stderr, "[%s]:  bg_idx = %u, ed_idx = %u, tot_idx = %u, cur_flag = %u\n", __func__, bg_idx, ed_idx, tot_idx, cur_flag);
         bwtint_t i;
         for(i = bg_idx; i < ed_idx; ++i) {
@@ -507,7 +505,11 @@ void gen_seedidx(uint8_t *bwt_is_repeat, idx_t *idx, int ext_i, const char*prefi
         }
         exit(1);
       }
+*/
 #endif
+
+      if(cur_flag == FLAG_UNIQ) continue; 
+      //print begin index and total number of index
       if(n_seedidx % 10000 == 0) fprintf(stderr, "[%s]: n_seedidx = %d\n", __func__, n_seedidx);
       n_seedidx++;
       next_idx[0] = bg_idx;
@@ -518,16 +520,15 @@ void gen_seedidx(uint8_t *bwt_is_repeat, idx_t *idx, int ext_i, const char*prefi
     return;
 }
 
-int gen_rank(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, uint32_t rank[])
+int gen_rank(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, int ext_k, uint64_t rank[])
 {
-  bwtint_t i,ii, j, pos, st, ed;
-
-  uint32_t max_pos, min_pos;
+  bwtint_t i,ii, j=0, pos, st;
+  uint32_t max_pos;
   if(offset<0){
       printf("%s\n","Err: offset can not be less than 0 !");
       exit(1);
   }
-  max_pos = bwt->seq_len-offset-8;        
+  max_pos = bwt->seq_len-offset-k;        
   //max_pos = bwt->seq_len-20;        
   uint32_t last_seq8, seq8;
   uint32_t n = 0;
@@ -538,7 +539,7 @@ int gen_rank(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, uint3
   if(pos <= max_pos){
     st = pos + offset; 
     seq8 = 0;
-    for(ii = st; ii < st+8; ++ii) {
+    for(ii = st; ii < st+ext_k; ++ii) {
       seq8 |= __get_pac(pac, ii);
       seq8 <<= 2;
     }
@@ -554,7 +555,7 @@ int gen_rank(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, uint3
     if(pos <= max_pos){
       st = pos + offset; 
       seq8 = 0;
-      for(ii = st; ii < st+8; ++ii) {
+      for(ii = st; ii < st+ext_k; ++ii) {
         seq8 |= __get_pac(pac, ii);
         seq8 <<= 2;
       } 
@@ -572,7 +573,7 @@ int gen_rank(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, uint3
   rank[++j] = ++n;
   return j;
 }
-
+/* 
 int cut_ext_seq0(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, uint32_t sort_flag[])
 {
     bwtint_t i,j,ii, pos, st, ed;
@@ -629,7 +630,8 @@ int cut_ext_seq0(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, u
     sort_flag[++j] = ++n;
     return j;
 }
-int cut_ext_seq1(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, uint32_t sort_flag[])
+*/
+int cut_ext_seq1(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, int ext_k, uint64_t sort_flag[])
 {
   bwtint_t i, j, ii, pos, st, ed;
   uint32_t max_pos, min_pos;
@@ -637,16 +639,17 @@ int cut_ext_seq1(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, u
     printf("%s\n","Err: offset can not be less than 0 !");
     exit(1);
   }
-  max_pos = bwt->seq_len-offset-16;
-  uint32_t last_seq16, seq16;
-  uint32_t n = 0;
-  int last_flag = 0, cur_flag = 0;
+  max_pos = bwt->seq_len-offset-ext_k;
+  uint64_t last_seq16 = 0, seq16 = 0;
+  uint64_t n = 0;
+  int last_flag = 1, cur_flag = 0;
   sort_flag[0] = n;
+  /*  
   pos = bwt_sa(bwt, k);
   if(pos <= max_pos){
     st = pos + offset; 
     seq16 = 0;
-    for(ii = st; ii < st+16; ++ii) {
+    for(ii = st; ii < st+ext_k; ++ii) {
       seq16 <<= 2;
       seq16 |= __get_pac(pac, ii);
     }
@@ -657,32 +660,34 @@ int cut_ext_seq1(uint8_t *pac, bwt_t *bwt, bwtint_t k, bwtint_t l, int offset, u
     last_seq16 = 0; 
     last_flag = 1;
   }
-  for(i = k+1; i <= l; ++i){
-    j = i-k;
+  */
+
+  for(j = 0, i = k; i <= l; ++i, ++j){
+    //j = i-k;
     pos = bwt_sa(bwt, i);       
     if(pos <= max_pos){
       st = pos + offset;
       seq16 = 0;
-      for(ii = st; ii < st+16; ++ii) {
+      for(ii = st; ii < st+ext_k; ++ii) {
         seq16 <<= 2;
         seq16 |= __get_pac(pac, ii);
       }
       cur_flag = 0;
+      if(last_flag == 1 || last_seq16 < seq16) {
+        n++;
+      }
+    
     }else{
       cur_flag = 1;
       ++n;
     } 
-    if(cur_flag == 0) {
-      if(last_flag == 1 || last_seq16 < seq16) {
-        n++;
-      }
-    }
+    //fprintf(stderr, "j = %u, seq = %x, flag = %u, rank = %u\n", j, seq16, cur_flag, n); 
     last_flag = cur_flag;
     last_seq16 = seq16; 
     sort_flag[j] += n;
   }
-  sort_flag[++j] += ++n;
-  sort_flag[++j] += ++n;
+  sort_flag[j++] += ++n;
+  sort_flag[j++] += ++n;
   return j;
 }
 
@@ -697,6 +702,7 @@ int get_12mer_correct(uint32_t hash_boundry[], uint32_t end_kmer)
     while(top < bot) {
         mid = (top+bot)/2;
         if(end_kmer == hash_boundry[mid]){
+            fprintf(stderr, "end_kmer = %u, boundry = %u\n", end_kmer, hash_boundry[mid]);
             flag = 1;
             break;
         } else if(end_kmer < hash_boundry[mid]){
@@ -740,7 +746,41 @@ int gen_hash_boundry(uint32_t hash_boundry[12], bwt_t *bwt, uint8_t *pac)
   }
   return 0;
 }
-void build_bwt_is_repeat ( const char *prefix, const idx_t *idx, const uint8_t *pac)
+int __check_search_12mer(idx_t *idx)
+{
+  fprintf(stderr, "for debug 12\n");
+  bwt_t *bwt = idx->bwt;
+  uint8_t *pac = idx->pac;
+  bwtint_t i = 0, j;
+  while(i<= bwt->seq_len){
+      //fprintf(stderr, "idx = %u\n", i);
+      uint32_t pos = bwt_sa(bwt, i);  
+      if(pos > bwt->seq_len-12) {
+          ++i;
+          continue;
+      }
+      int l_seq = 12;//fix?
+      uint8_t seed[256] = {}; 
+      uint32_t seq12 = 0;
+      for(j = 0; j < 12; ++j){ 
+          seed[j] = __get_pac(pac, pos+j);
+      }
+
+      seq12 = lkt_seq2LktItem(seed, 0, 11);
+
+      uint32_t k0 = idx->fastmap->item[seq12], l0 = idx->fastmap->item[seq12+1]; 
+      l0 = l0-1 -get_12mer_correct(idx->fastmap_correct, l0-1);
+      uint32_t k =0, l=bwt->seq_len;
+      bwt_match_exact_alt(bwt, l_seq, seed, &k, &l);
+      if(k0 != k || l0 != l){
+          fprintf(stderr, "[%u] 12mer(%u)error: k0, k = %u,%u   l0, l = %u, %u\n", i, seq12+1, k0, k, l0, l);
+          exit(1);
+      }
+      i += l-k+1;
+  }
+
+}
+void build_bwt_is_repeat ( const char *prefix, const idx_t *idx, const uint8_t *pac, int init_k, int ext_k)
 {
   int64_t i, j, ext_i;
   bwt_t *bwt = idx->bwt;
@@ -757,27 +797,40 @@ void build_bwt_is_repeat ( const char *prefix, const idx_t *idx, const uint8_t *
   }
   
 
-  uint32_t *rank = calloc(MAX_12_count+3, sizeof(uint32_t));
+  uint64_t *rank = calloc(MAX_12_count+3, sizeof(uint64_t));
   uint8_t *bwt_repeat0 = bwt_is_repeat[0];
   uint8_t *bwt_repeat1 = bwt_is_repeat[1];
 
   //+++++++++++++++++++++++++++++++++++++++++++++++++++
-  uint32_t bg_idx = 0, ed_idx = 0, glb_idx = 0; 
+  uint32_t bg_idx = 0, ed_idx = 0, num_idx, glb_idx = 0; 
   uint32_t MAX_20_count = 0;
+#ifdef DEBUG
+  __check_search_12mer(idx);
+#endif
   for(glb_idx =0; glb_idx < fastmap->n_item; ++glb_idx){
     bg_idx = fastmap->item[glb_idx];
     ed_idx = fastmap->item[glb_idx+1];
-    ed_idx -= get_12mer_correct(hash_boundry, ed_idx-1);
+    ed_idx =ed_idx- get_12mer_correct(hash_boundry, ed_idx-1);
     if(bg_idx >= bwt->seq_len) break;
-    uint32_t num_idx;
-    if(bg_idx +1>= ed_idx) { 
-      continue;
-    } else{ 
-      num_idx = ed_idx - bg_idx;
-      ed_idx -= 1;
+    if(bg_idx +1>= ed_idx) { continue;} 
+
+#ifdef DEBUG
+    if(__check_seedidx(bg_idx, ed_idx-bg_idx, 12, idx)==0){
+      fprintf(stderr, "[%s]: bg_idx = %u, ed_idx = %u, fastmap->item = %u\n", __func__, bg_idx, ed_idx, fastmap->item[glb_idx+1]);
+      for(i = 0; i < 12; ++i) {
+        fprintf(stderr, "hash[%u] = %u\n", i, hash_boundry[i]); 
+      }
+      exit(1);
     }
+#endif  
+    num_idx = ed_idx - bg_idx;
+    ed_idx -= 1;
+  
     int offset = 12;
-    gen_rank(pac, bwt, bg_idx, ed_idx, offset, rank);
+    //gen_rank(pac, bwt, bg_idx, ed_idx, offset, init_k-offset, rank);
+    
+    for(i = 0; i <= num_idx; ++i){ rank[i] = 0; }
+    cut_ext_seq1(pac, bwt, bg_idx, ed_idx, offset, init_k -offset, rank);
     uint32_t i_st = 0; 
     for(i = 0; i < num_idx; ++i){
       if(rank[i] < rank[i+1]){
@@ -785,42 +838,25 @@ void build_bwt_is_repeat ( const char *prefix, const idx_t *idx, const uint8_t *
           bwt_repeat0[bg_idx+i_st] = FLAG_REP_ST; 
           for(j = i_st+1; j <= i; ++j) bwt_repeat0[bg_idx+j] = FLAG_REP;
           if(i-i_st > MAX_20_count) MAX_20_count = i-i_st;
-        }
+
+#ifdef DEBUG
+          if(__check_seedidx(bg_idx+i_st, i-i_st+1, init_k, idx) == 0){
+            fprintf(stderr, "[%s]: i = %u, i_st = %u, bg_idx+i_st = %u, rank[i] = %u, rank[i+1] = %u\n", __func__, i, i_st, bg_idx+i_st, rank[i], rank[i+1]);
+            exit(1);
+          }
+#endif
+        } 
         i_st = i+1;                 
       }      
     }
   }
- 
-  /*
-    fprintf(stderr, "for debug 12\n");
-    i = 0;
-    while(i<= bwt->seq_len){
-        //fprintf(stderr, "idx = %u\n", i);
-        uint32_t pos = bwt_sa(bwt, i);  
-        if(pos > bwt->seq_len-12) {
-            ++i;
-            continue;
-        }
-        int l_seq = 12;//fix?
-        uint8_t seed[256] = {}; uint32_t seq12 = 0;
-        for(j = 0; j < 12; ++j){ 
-            seed[j] = __get_pac(pac, pos+j);
-            seq12 <<= 2;
-            seq12 |= seed[j];
-        }
-        uint32_t k0 = fastmap->item[seq12], l0 = fastmap->item[seq12+1]; 
-        l0 = l0-1 -get_12mer_correct(hash_boundry, l0-1);
-        uint32_t k =0, l=bwt->seq_len;
-        bwt_match_exact_alt(bwt, l_seq, seed, &k, &l);
-        if(k0 != k || l0 != l){
-            fprintf(stderr, "[%u] 12mer(%u)error: k0, k = %u,%u   l0, l = %u, %u\n", i, seq12+1, k0, k, l0, l);
 
-        }
-        i += l-k+1;
-    }
+  /*
   */    
  
-
+#ifdef DEBUG
+  __check_bwt_is_repeat(bwt_repeat0, 0, init_k, idx);
+#endif
   gen_seedidx(bwt_repeat0, idx, 0, prefix); 
   fprintf(stderr, "dump 20 bp seed data!\n");
 
@@ -836,16 +872,18 @@ void build_bwt_is_repeat ( const char *prefix, const idx_t *idx, const uint8_t *
       while(glb_idx <=bwt->seq_len && bwt_repeat0[glb_idx] == FLAG_REP){ glb_idx++;}
       ed_idx = glb_idx-1;
       num_idx = ed_idx+1 - bg_idx;
-      for(i = 0; i <= num_idx; ++i){
-          rank[i] = 0; 
-      }
-      int offset = LEN_SEED+2*LEN_EXT*(ext_i-1);
-      cut_ext_seq1(pac, bwt, bg_idx, ed_idx, offset, rank);
-      cut_ext_seq1(pac, bwt, bg_idx, ed_idx, offset+16, rank);
+      for(i = 0; i <= num_idx; ++i){ rank[i] = 0; }
+      int offset = init_k+2*ext_k*(ext_i-1);
+      /*  
+      cut_ext_seq1(pac, bwt, bg_idx, ed_idx, offset, ext_k, rank);
+      for(i = 0; i <= num_idx; ++i) {rank[i] <<= 32;}
+      cut_ext_seq1(pac, bwt, bg_idx, ed_idx, offset+ext_k, ext_k, rank);
+      */
+      cut_ext_seq1(pac, bwt, bg_idx, ed_idx, offset, ext_k*2, rank);
       uint32_t i_st = 0; 
       for(i = 0; i < num_idx; ++i){
 
-        fprintf(stderr, "[%s]: i = %u, i_st = %u, bg_idx+i_st = %u, rank[i] = %u, rank[i+1] = %u\n", __func__, i, i_st, bg_idx+i_st, rank[i], rank[i+1]);
+        //fprintf(stderr, "[%s]: i = %u, i_st = %u, bg_idx+i_st = %u, rank[i] = %u, rank[i+1] = %u\n", __func__, i, i_st, bg_idx+i_st, rank[i], rank[i+1]);
         if(rank[i] < rank[i+1]){
           //ref_is_repeat[cur_pos] = 3;
           if(i - i_st >= 1){
@@ -859,9 +897,11 @@ void build_bwt_is_repeat ( const char *prefix, const idx_t *idx, const uint8_t *
     }// end while(glb_idx < bwt->seq_len)
     
    
-    fprintf(stderr, "ext = %u, len = %u ++++++++++++++\n", ext_i, 20+ext_i*32);
+    fprintf(stderr, "ext = %u, len = %u ++++++++++++++\n", ext_i, init_k+ext_i*2*ext_k);
     
-    //__check_bwt_is_repeat(bwt_repeat1, ext_i, idx);
+#ifdef DEBUG
+    __check_bwt_is_repeat(bwt_repeat1, ext_i, init_k+2*ext_i*ext_k, idx);
+#endif
     gen_seedidx(bwt_repeat1, idx, ext_i, prefix);// generate bg-idx and ed-idx for repetive seeds 
     fprintf(stderr, "dump data finish\n");
     SWAP(uint8_t *, bwt_repeat0, bwt_repeat1);
@@ -873,13 +913,13 @@ void build_bwt_is_repeat ( const char *prefix, const idx_t *idx, const uint8_t *
   free(bwt_is_repeat[0]);
   return;
 }		/* -----  end of function build_bwt_is_repeat  ----- */
-int __check_bwt_is_repeat(uint8_t *bwt_repeat1, int ext_i, idx_t *idx)
+int __check_bwt_is_repeat(uint8_t *bwt_repeat1, int ext_i, int l_ext_seed, idx_t *idx)
 {
 
   fprintf(stderr, "[%s]:  check bwt repeat for generation %d\n", __func__, ext_i);
   bwt_t *bwt = idx->bwt;
   uint8_t *pac = idx->pac;
-  int l_ext_seed = 20 + 32*ext_i;
+  //int l_ext_seed = 20 + 32*ext_i;
 
   bwtint_t i = 0, j, k, l;
   while(i<= bwt->seq_len){
@@ -906,7 +946,7 @@ int __check_bwt_is_repeat(uint8_t *bwt_repeat1, int ext_i, idx_t *idx)
       } else{
 
           if(bwt_repeat1[k] != 2) {
-              fprintf(stderr, "[Error]:flag =2, seed_len= %u num = %u\t repeat[%u]=%u\n", l_ext_seed,l-k+1, k, bwt_repeat1[k]);            
+              fprintf(stderr, "[Error]:flag =2, seed_len= %u num = %u\t repeat[%u]=%u, k = %u, l = %u\n", l_ext_seed,l-k+1, k, bwt_repeat1[k], k, l);            
               exit(1);
 
           }
@@ -1008,7 +1048,7 @@ void build_extend_idx_alt(const char *prefix, int init_k, int ext_k)
 
   //ref_is_repeat = (bp_t *)bp_init(bwt->seq_len);/*indicate repeat seeds on reference*/
   //ref_is_repeat = (uint8_t *)calloc(bwt->seq_len+2, sizeof(uint8_t));/* indicate repeat seed on bwt index */
-  build_bwt_is_repeat(prefix, idx, idx->pac);
+  build_bwt_is_repeat(prefix, idx, idx->pac, init_k, ext_k);
   fbwt_fmidx_destroy(idx);
   return;
 }
@@ -1215,12 +1255,12 @@ int fbwt_rbwt_build(idx_t *idx)
 int idx_build_core(const char *fn_fa, const char *prefix, int init_k, int ext_k)
 {
   fprintf(stderr, "[%s]:  build fm-idx.\n", __func__);
-  build_fmidx(fn_fa, prefix);
-  build_sa(fn_fa, prefix);
+  //build_fmidx(fn_fa, prefix);
+  //build_sa(fn_fa, prefix);
   fprintf(stderr, "[%s]:  build extend idx.\n", __func__);
-  build_extend_idx_alt(prefix, init_k, ext_k);
+  //build_extend_idx_alt(prefix, init_k, ext_k);
   fprintf(stderr, "[%s]:  build hier index.\n", __func__);
-  build_hier_idx(prefix); 
+  build_hier_idx(prefix, init_k, ext_k); 
 
   return 0;
 }
@@ -1246,12 +1286,12 @@ void test_idx_reload(const char *prefix)
     int n = 36;
     fprintf(stderr, "\n********************************************\n"); 
     fprintf(stderr, "log information of approx index\n"); 
-    bp_t *is_multi = idx->is_multiseeds;
+    //bp_t *is_multi = idx->is_multiseeds;
     /* print BWM and multi seeds */
     for(i = 0; i <= idx->bwt->seq_len; ++i){
         bwtint_t pos = bwt_sa(bwt, i);
         if(pos == -1) pos = bwt->seq_len;
-        fprintf(stderr, "%u\t%u\t%u\t", i, bp_get(is_multi, i), pos);       
+        //fprintf(stderr, "%u\t%u\t%u\t", i, bp_get(is_multi, i), pos);       
         for(j =0; j <n;++j){ 
             if(pos + j >= bwt->seq_len) break; 
             fprintf(stderr, "%c", "ACGT"[__get_pac(idx->pac, pos+j)]);
@@ -1298,17 +1338,23 @@ void test_idx_reload(const char *prefix)
     }
     fbwt_fmidx_destroy(idx);
 }
+
 int index_main ( int argc, char *argv[] )
 {
     int c;
-    int k = 20;
-    while((c = getopt(argc, argv, "k:h"))>=0){
+    int a = 20;
+    int b = 16;
+    while((c = getopt(argc, argv, "b:a:h"))>=0){
         switch(c){
             case 'h':
                 return index_usage();
-            case 'k':
-                k = atoi(optarg);
+            case 'a':
+                a = atoi(optarg);
                 break; 
+            case 'b':
+                b = atoi(optarg);
+                break; 
+
             default:
          return 1;
               
@@ -1318,11 +1364,14 @@ int index_main ( int argc, char *argv[] )
     if (argc - optind  != 2 ){
         return index_usage();
     }
- 
+    if(b > 16) {
+      fprintf(stderr, "ext_k shounldn't be longer than 16!\n");
+      exit(1);        
+    }   
     
     
     
-    idx_build_core(argv[optind], argv[optind+1], k, 16);
+    idx_build_core(argv[optind], argv[optind+1], a, b);
 
     
     return 0;
