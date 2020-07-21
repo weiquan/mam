@@ -1573,12 +1573,12 @@ uint32_t aln_mem_alt(idx_t *idx ,int l_seq, uint8_t *seq, int *s_k, int *s_l, bw
 
     n0 = rbwt_exact_match(lidx->bwt0, l_lext, idx->cnt_table, l_lext, seq+s_bg-l_lext, &k0, &l0);
     if(n0 != 1) goto end;
-    rbwt_seq_print(lidx->bwt0, l_lext, idx->cnt_table, k0);
+    //rbwt_seq_print(lidx->bwt0, l_lext, idx->cnt_table, k0);
     uint32_t k1 = 0, l1 = lidx->bwt1->n_seqs, n1 = 0;
     //n1 = rbwt_exact_match(lidx->bwt1, lidx->bwt1->n_rot, idx->cnt_table, 16, seq+s_ed, &k1, &l1);
     n1 = rbwt_exact_match(lidx->bwt1, l_rext, idx->cnt_table, l_rext, seq+s_ed, &k1, &l1);
     if(n1 != 1) goto end;
-    rbwt_seq_print(lidx->bwt1, l_rext, idx->cnt_table, k1);
+    //rbwt_seq_print(lidx->bwt1, l_rext, idx->cnt_table, k1);
     
     for(i = k0; i < l0; ++i){
       uint32_t bg, ed;

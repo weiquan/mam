@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <zlib.h>
 //#include "kstring.h"
+//#include "aln.h"
 #include "kseq.h"
 #include "kvec.h"
 
@@ -25,6 +26,14 @@ KSEQ_INIT(gzFile, gzread)
 #define MAX_STR_LEN 1024
 #define STRAND_FORWARD 0
 #define STRAND_BACKWARD 1
+
+typedef struct{
+  int sc;
+  uint32_t ref_bg, ref_ed;
+  uint32_t tb, te;
+  int qb, qe;
+  int strand;
+} aln_t;
 
 
 typedef kvec_t(uint32_t) vec_uint32_t;
@@ -41,15 +50,11 @@ typedef struct{
     //best hit
     int flag;
     uint32_t pos;
-
     kstring_t *cigar;
     int strand;
-    uint8_t n_diff;
-    uint8_t is_gap;
-    int n_indel;
-    int n_mismatch;
     uint8_t mapq;
     int n_ambiguous;
+    kvec_t(aln_t) xa;
     //multi hits
     //hits_t hits[2];
     //vec_uint_t ordered_index;

@@ -234,6 +234,7 @@ void opt_log(const opt_t *opt){
     fprintf(stderr, "Rg_id:             %s\n", opt->rg_id);
     fprintf(stderr, "Index prefix:      %s\n", opt->fn_index);
     fprintf(stderr, "Kmer length:       %d\n", opt->l_seed);
+    fprintf(stderr, "Kmer shift:        %d\n", opt->l_overlap);
     if(opt->se) {
     fprintf(stderr, "SE/PE:             Single end.\n");
     fprintf(stderr, "Read file name:    %s\n", opt->fn_read1);

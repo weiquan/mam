@@ -191,7 +191,7 @@ idx_t *fbwt_hier_idx_restore(idx_t *idx, const char *prefix)
   idx->cnt_table = calloc(256, sizeof(uint32_t));
   rbwt_gen_cnt_table(idx->cnt_table); 
   // initialize scoring matrix
-	int sa = 1, sb = 2;
+	int sa = 1, sb = 4;
   int k;
   uint8_t *mat = idx->mat;
   for (i = k = 0; i < 4; ++i) {
@@ -702,7 +702,7 @@ int get_12mer_correct(uint32_t hash_boundry[], uint32_t end_kmer)
     while(top < bot) {
         mid = (top+bot)/2;
         if(end_kmer == hash_boundry[mid]){
-            fprintf(stderr, "end_kmer = %u, boundry = %u\n", end_kmer, hash_boundry[mid]);
+            //fprintf(stderr, "end_kmer = %u, boundry = %u\n", end_kmer, hash_boundry[mid]);
             flag = 1;
             break;
         } else if(end_kmer < hash_boundry[mid]){
@@ -1255,10 +1255,10 @@ int fbwt_rbwt_build(idx_t *idx)
 int idx_build_core(const char *fn_fa, const char *prefix, int init_k, int ext_k)
 {
   fprintf(stderr, "[%s]:  build fm-idx.\n", __func__);
-  //build_fmidx(fn_fa, prefix);
-  //build_sa(fn_fa, prefix);
+  build_fmidx(fn_fa, prefix);
+  build_sa(fn_fa, prefix);
   fprintf(stderr, "[%s]:  build extend idx.\n", __func__);
-  //build_extend_idx_alt(prefix, init_k, ext_k);
+  build_extend_idx_alt(prefix, init_k, ext_k);
   fprintf(stderr, "[%s]:  build hier index.\n", __func__);
   build_hier_idx(prefix, init_k, ext_k); 
 

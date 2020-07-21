@@ -23,6 +23,10 @@ test_mem:
 mam: 
 		$(CC) $(CFLAGS) -O2 $(DFLAGS) -DMAIN_ALN -DUSE_MALLOC_WRAPPERS -DHAVE_THREAD $(SRC)  index.c build_hier_idx.c aln.c alnse.c ksw.c sam.c -o $@ $(LIBS)
 		mv $@ ../Bin/
+mam2: 
+		$(CC) $(CFLAGS) -O2 $(DFLAGS) -DSKIP_MEM -DMAIN_ALN -DUSE_MALLOC_WRAPPERS -DHAVE_THREAD $(SRC)  index.c build_hier_idx.c aln.c alnse.c ksw.c sam.c -o $@ $(LIBS)
+		mv $@ ../Bin/
+
 
 
 index_debug: 

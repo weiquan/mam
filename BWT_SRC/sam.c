@@ -328,6 +328,7 @@ void sam_add_md_nm(kstring_t *s, idx_t *index, query_t *q)
     }
     if(n_match != 0) ksprintf(s, "%d", n_match);
     ksprintf(s, "\tNM:i:%u", nm);
+    ksprintf(s, "\tAS:i:%u", q->b0);
     return;
 }
 #define STRAND_FORWARD 0
