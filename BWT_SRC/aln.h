@@ -92,6 +92,7 @@ typedef struct{
 
 } aln_opt_t;
 
+
 typedef struct{
     uint32_t sp;
     uint32_t ep;
@@ -123,7 +124,7 @@ static inline aln_opt_t* aln_opt_init(const opt_t *opt){
     aln_opt->l_overlap = opt->l_overlap;
     aln_opt->max_locate = opt->max_locate; 
     aln_opt->max_chain_gap = 16; 
-    aln_opt->max_extend = 20; 
+    aln_opt->max_extend = 50; 
     aln_opt->max_seed = opt->max_seed; 
     aln_opt->max_hits = 5;
     aln_opt->extend_algo = opt->extend_algo;

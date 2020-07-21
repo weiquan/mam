@@ -176,9 +176,9 @@ int query_read_seq(queryio_t *qs, query_t *query)
     if(kseq->qual.l > 0){
       query->qual = (uint8_t *)strdup(kseq->qual.s);
     }
-    query->is_gap = -1;
+    //query->is_gap = -1;
     query->pos = 0xFFFFFFFF;
-    query->n_diff = -1;
+    //query->n_diff = -1;
     query->strand = 3;
     query->b0 = -1;      
     query->b1 = -1;
@@ -247,12 +247,13 @@ void query_gen_cigar(uint32_t l_ref, const uint32_t *mixRef, query_t *query)
     query->seq_start = 0;
     query->seq_end = query->l_seq-1;
     if(query->pos != 0xFFFFFFFF){
+        /*  
         if(query->is_gap){//have gap
           //int ret = ed_diff_withcigar(mixRef, query->pos, query->l_seq+4, query->strand==0?query->seq:query->rseq, query->l_seq, query->n_diff, query->cigar->s, query->cigar->m, 1, COMPACT_CIGAR_STRING);
           //if(ret == -1) fprintf(stderr, "[%s]:Erro:%s\n", __func__, query->name);
           //fprintf(stderr, "[cigar]: %s\n", query->cigar->s);           
         } else ksprintf(query->cigar, "%dM", query->l_seq);
-    
+        */
     
     } //else query->cigar = NULL;
    

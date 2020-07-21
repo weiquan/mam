@@ -305,7 +305,7 @@ void sam_add_md_nm(kstring_t *s, idx_t *index, query_t *q)
                     ref_pos += 1;
                     seq += 1;
                 }
-                if(n_match != 0) ksprintf(s, "%d", n_match);
+                //if(n_match != 0) ksprintf(s, "%d", n_match);
                 break;
             case 'I':
                 nm+=n; 
@@ -326,8 +326,9 @@ void sam_add_md_nm(kstring_t *s, idx_t *index, query_t *q)
         }
         cigar += 1;
     }
-    //if(n_match != 0) ksprintf(s, "%d", n_match);
+    if(n_match != 0) ksprintf(s, "%d", n_match);
     ksprintf(s, "\tNM:i:%u", nm);
+    ksprintf(s, "\tAS:i:%u", q->b0);
     return;
 }
 #define STRAND_FORWARD 0

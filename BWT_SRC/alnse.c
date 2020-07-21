@@ -38,13 +38,6 @@ typedef struct{
   uint32_t bg, ed;
 } pair_t;
 
-typedef struct{
-  int sc;
-  uint32_t tb, te;
-  int qb, qe;
-  int strand;
-} aln_t;
-
 #define __sai_lt(a, b) ((a).ep -(a).sp < (b).ep - (b).sp)
 //KHASH_MAP_INIT_INT(32, unsigned char)
 //KSORT_INIT_GENERIC(uint32_t)
@@ -54,8 +47,11 @@ KSORT_INIT(sai, sai_t, __sai_lt)
 #define __chain_lg(a, b) ((a).n == (b).n? (a).ed-(a).bg<(b).ed-(b).bg:(a).n>(b).n)
 KSORT_INIT(chain, chain_t, __chain_lg)
 
-#define __candi_lt(a, b) ((a).bg < (b).bg? (a).bg:(b).bg)
-KSORT_INIT(candi, chain_t, __chain_lg)
+#define __candi_lt(a, b) ((a).bg == (b).bg? (a).ed < (b).ed:(a).bg < (b).bg)
+KSORT_INIT(candi, pair_t, __candi_lt)
+
+#define __sc_lg(a, b) ((a).sc > (b).sc)
+KSORT_INIT(aln, aln_t, __sc_lg)
 
 
 #define __MAX(a, b) ((a)>(b)?(a):(b))
@@ -120,18 +116,20 @@ void alnse_seed_overlap(idx_t *index, uint32_t l_seq, const uint8_t *seq, aln_op
       */
       k = 1; //k=0???
       l = bwt->seq_len;
-      uint32_t iter = lkt_seq2LktItem(seq, seed_start+8, seed_end-1);
+      uint32_t iter = lkt_seq2LktItem(seq, seed_start+l_init-12, seed_end-1);
 #ifdef DEBUG
       uint32_t __k = 1, __l = bwt->seq_len, __n, __k0, __l0;
-      __n = bwt_match_exact_alt(index->bwt, 12, seq+init_bg+8, &__k, &__l);
+      __n = bwt_match_exact_alt(index->bwt, 12, seq+init_bg+l_init-12, &__k, &__l);
 
-      if(__n >0 && iter == 0xFFFFFFFF){
+      if(__n >0 && iter != 0xFFFFFFFF){
         __k0 = index->fastmap->item[iter];
         __l0 = index->fastmap->item[iter+1];
-        __l0 -= get_12mer_correct(index->fastmap_correct, __l0-1);
-        fprintf(stderr, "12 mer search  fail!!\n");
-        fprintf(stderr, "seed_st = %u, k = %u, l = %u, __k =%u, __l = %u, [%u, %u],\n", seed_start,__k0, __l0, __k, __l, init_bg, init_ed);
-        exit(1);
+        __l0 -= get_12mer_correct(index->fastmap_correct, __l0-1)+1;
+        if(__k0 != __k || __l0 != __l) {
+          fprintf(stderr, "12 mer search  fail!!\n");
+          fprintf(stderr, "seed_st = %u, k = %u, l = %u, __k =%u, __l = %u, [%u, %u],\n", seed_start,__k0, __l0, __k, __l, init_bg, init_ed);
+          exit(1);
+        }
       } 
     
 
@@ -142,16 +140,30 @@ void alnse_seed_overlap(idx_t *index, uint32_t l_seq, const uint8_t *seq, aln_op
       k = index->fastmap->item[iter];
       l = index->fastmap->item[iter+1];
       l -= get_12mer_correct(index->fastmap_correct, l-1)+1;
-
+      /*  
+      k = 1, l = bwt->seq_len;
+      n = bwt_match_exact_alt(index->bwt, l_init, seq+init_bg, &k, &l);
+      */
      
       if(k > l) continue;
-      n = bwt_match_exact_alt(index->bwt, 8, seq+init_bg, &k, &l);
+#ifndef SKIP_MEM
+      n = bwt_match_exact_alt(index->bwt, l_init-12, seq+init_bg, &k, &l);
       if(n == 0) continue;
       if(n > IS_SMLSIZ) {
         aln_mem_alt(index, l_seq, seq, &init_bg, &init_ed, &k, &l, IS_SMLSIZ);       
       }
 #ifdef DEBUG
-      fprintf(stderr, "seed_st = %u, k = %u, l = %u, [%u, %u]\n", seed_start, k, l, init_bg, init_ed);
+      fprintf(stderr, "seed_st = %u, k = %u, l = %u, n = %u, [%u, %u]\n", seed_start, k, l, l -k +1, init_bg, init_ed);
+#endif 
+      if(k < l) n = l + 1 - k;
+      else n = 0; 
+      if(n > opt->max_locate) {
+        while(init_bg > 0 && n > opt->max_locate) {
+          n = bwt_match_exact_alt(index->bwt, 1, seq+init_bg-1, &k, &l); 
+          if(n > 0) init_bg--; 
+        } 
+      
+      }
 #endif 
       //if(k + opt->max_locate > l) {
       for(i = k; i <= __MIN(l, k+opt->max_locate); ++i) {
@@ -169,7 +181,7 @@ void alnse_seed_overlap(idx_t *index, uint32_t l_seq, const uint8_t *seq, aln_op
       }
       //}         
     }    
-    ks_introsort(pair_t, candi->n, candi->a);
+    ks_introsort(candi, candi->n, candi->a);
 }
 void alnse_chain(candi_t *candi, int max_gap, int max_len, kvec_t(chain_t) *chain)
 {
@@ -180,8 +192,8 @@ void alnse_chain(candi_t *candi, int max_gap, int max_len, kvec_t(chain_t) *chai
   kv_init(*chain);
   kv_push(chain_t, *chain, c);
   p0 = a[0].bg;
-  chain->a[0].bg = p0; 
-  chain->a[0].ed = p0;
+  chain->a[0].bg = a[0].bg; 
+  chain->a[0].ed = a[0].ed;
   chain->a[0].n = 1; 
   for(i = 1, j = 0; i < candi->n; ++i){
     p1 = a[i].bg;
@@ -202,20 +214,20 @@ void alnse_chain(candi_t *candi, int max_gap, int max_len, kvec_t(chain_t) *chai
   }
   ks_introsort(chain, chain->n, chain->a);
 }
-kswr_t alnse_extend(uint8_t *pac, uint32_t ref_bg, uint32_t ref_ed, int l_seq, const uint8_t *seq, kswq_t **q, int8_t mat[25], int minsc)
+kswr_t alnse_extend(uint8_t *pac, uint32_t ref_bg, uint32_t ref_ed, int l_seq, const uint8_t *seq, kswq_t **q, int8_t mat[25], int XSTART, int minsc)
 {
   int i;
   uint8_t ref[1024];
-  int gapo = 5, gape = 2, xtra = KSW_XSTART;
+  int gapo = 5, gape = 2, xtra = XSTART;
   if(ref_ed - ref_bg >= 1024) {
-    fprintf(stderr, "Ref seq len (%u) too long!", ref_ed - ref_bg); 
+    fprintf(stderr, "Ref seq len (%u) too long!, ref_bg = %u, ref_ed = %u\n", ref_ed - ref_bg, ref_bg, ref_ed); 
     exit(1);
   }
   for(i = 0; i < ref_ed - ref_bg; ++i) {
     ref[i] = __get_pac(pac, ref_bg+i); 
   }
   //kswq_t *q[2] = {0, 0};
-  xtra |= KSW_XBYTE|minsc;
+  //xtra |= KSW_XBYTE;
   kswr_t r = ksw_align(l_seq, seq, ref_ed -ref_bg, ref,5, mat, gapo, gape, xtra, q);
   //free(q[0]);
   return r; 
@@ -241,13 +253,23 @@ int gen_cigar(uint8_t *pac, uint32_t ref_bg, uint32_t ref_ed, int l_seq, const u
 {
   int i;
   uint8_t ref[1024];
-  int gapo = 5, gape = 2, xtra = KSW_XSTART;
+  int gapo = 5, gape = 2;
   for(i = 0; i < ref_ed - ref_bg; ++i) {
     ref[i] = __get_pac(pac, ref_bg+i); 
   }
 
-  int w = ((l_seq>>1)*mat[0]-gapo)/gape;
-  ksw_global(l_seq, seq, ref_ed-ref_bg, ref, 5, mat, gapo, gape, w, n_cigar, cigar);
+  //int w = ((l_seq>>1)*mat[0]-gapo)/gape;
+  int w = __MAX(l_seq, ref_ed-ref_bg)*mat[0] - minsc-gapo;
+  w = w <= 0?0:w/gape+1;
+  //w = 10;
+  //w <<= 2;
+  //int w = 50;
+  int sc = ksw_global(l_seq, seq, ref_ed-ref_bg, ref, 5, mat, gapo, gape, w, n_cigar, cigar);
+  if(sc != minsc) {
+    fprintf(stderr, "sc = %d, minsc = %d\n", sc, minsc);
+    fprintf(stderr, "l_seq = %d, ref_bg = %d, ref_ed = %d\n", l_seq, ref_bg, ref_ed);
+    exit(1);
+  }
   /*  
   fprintf(stderr, "sc = %d, cigar:", minsc);
   for(i =0; i < *n_cigar; ++i) {
@@ -311,7 +333,8 @@ void alnse_core_single(idx_t *index, query_t *query, aln_opt_t* aln_opt)
 #endif   
   // 
   uint32_t ref_bg, ref_ed;
-  int n_extend = aln_opt->max_extend < chain0.n? aln_opt->max_extend:chain0.n;
+  //int n_extend = aln_opt->max_extend < chain0.n? aln_opt->max_extend:chain0.n;
+  int n_extend = chain0.n;
   kvec_t(aln_t) aln;
   kv_init(aln);
   int thres = query->l_seq/3;
@@ -320,7 +343,7 @@ void alnse_core_single(idx_t *index, query_t *query, aln_opt_t* aln_opt)
   for(j =0; j < n_extend; ++j) {
     ref_bg = chain0.a[j].bg; 
     ref_ed = __MIN(chain0.a[j].ed, index->bwt->seq_len-1); 
-    kswr_t r = alnse_extend(index->pac, ref_bg, ref_ed, query->l_seq, seq, &q[0], index->mat, maxsc);
+    kswr_t r = alnse_extend(index->pac, ref_bg, ref_ed, query->l_seq, seq, &q[0], index->mat, 0, maxsc);
 #ifdef DEBUG
     fprintf(stderr, "[bg, ed, n, l, sc] = [%u, %u, %u, %u, %u, %u, %u, %u, %u]\n", chain0.a[j].bg, chain0.a[j].ed, chain0.a[j].n, chain0.a[j].ed - chain0.a[j].bg, r.score, r.tb, r.te, r.qb, r.qe);
     print_real_coor(index->bns, ref_bg, query->l_seq);
@@ -331,8 +354,11 @@ void alnse_core_single(idx_t *index, query_t *query, aln_opt_t* aln_opt)
       aln_t x;
       x.strand = 0;
       x.sc = r.score;
-      x.tb = r.tb+ref_bg;
-      x.te = r.te+ref_bg+1;
+     
+      x.ref_bg = ref_bg;
+      x.ref_ed = ref_ed;
+      x.tb = r.tb;
+      x.te = r.te+1;
       x.qb = r.qb;
       x.qe = r.qe+1;
       kv_push(aln_t, aln, x); // append bgn
@@ -343,11 +369,12 @@ void alnse_core_single(idx_t *index, query_t *query, aln_opt_t* aln_opt)
  
     }
   }
-  n_extend = aln_opt->max_extend < chain1.n? aln_opt->max_extend:chain1.n;
+  //n_extend = aln_opt->max_extend < chain1.n? aln_opt->max_extend:chain1.n;
+  n_extend = chain1.n;
   for(j =0; j < n_extend; ++j) {
     ref_bg = chain1.a[j].bg; 
     ref_ed = __MIN(chain1.a[j].ed, index->bwt->seq_len-1);  
-    kswr_t r = alnse_extend(index->pac, ref_bg, ref_ed, query->l_seq, rseq, &q[1], index->mat, maxsc);
+    kswr_t r = alnse_extend(index->pac, ref_bg, ref_ed, query->l_seq, rseq, &q[1], index->mat, 0, maxsc);
 #ifdef DEBUG
     fprintf(stderr, "[bg, ed, n, l, sc] = [%u, %u, %u, %u, %u, %u, %u, %u, %u]\n", chain1.a[j].bg, chain1.a[j].ed, chain1.a[j].n, chain1.a[j].ed - chain1.a[j].bg, r.score, r.tb, r.te, r.qb, r.qe);
     print_real_coor(index->bns, ref_bg, query->l_seq);
@@ -358,8 +385,10 @@ void alnse_core_single(idx_t *index, query_t *query, aln_opt_t* aln_opt)
       aln_t x;
       x.strand = 1;
       x.sc = r.score;
-      x.tb = r.tb+ref_bg;
-      x.te = r.te+ref_bg+1;
+      x.ref_bg = ref_bg;
+      x.ref_ed = ref_ed;
+      x.tb = r.tb;
+      x.te = r.te+1;
       x.qb = r.qb;
       x.qe = r.qe+1;
       kv_push(aln_t, aln, x); // append bgn
@@ -369,16 +398,23 @@ void alnse_core_single(idx_t *index, query_t *query, aln_opt_t* aln_opt)
       }
     }
   }
-  free(q[0]);
-  free(q[1]);
   if(maxi != -1) {
-    query->pos = query->ref_start = aln.a[maxi].tb;
-    query->b0 = maxsc;
+
+    query->b0 = aln.a[maxi].sc;
     query->strand = aln.a[maxi].strand;
-    query->ref_start = aln.a[maxi].tb;
-    query->ref_end = aln.a[maxi].te;
-    query->seq_start = aln.a[maxi].qb;
-    query->seq_end = aln.a[maxi].qe;
+
+    kswr_t r = alnse_extend(index->pac, aln.a[maxi].ref_bg, aln.a[maxi].ref_ed, query->l_seq, query->strand == 0?seq:rseq, &q[query->strand], index->mat, KSW_XSTART, maxsc);
+#ifdef DEBUG
+    fprintf(stderr, "[bg, ed, sc] = [%u, %u, %u, %u, %u, %u, %u]\n", aln.a[maxi].ref_bg, aln.a[maxi].ref_ed, r.score, r.tb, r.te, r.qb, r.qe);
+    print_real_coor(index->bns, aln.a[maxi].ref_bg, query->l_seq);
+    print_real_coor(index->bns, aln.a[maxi].ref_ed, query->l_seq);
+ 
+#endif
+
+    query->pos = query->ref_start = aln.a[maxi].ref_bg + r.tb;
+    query->ref_end = aln.a[maxi].ref_bg+r.te+1;
+    query->seq_start = r.qb;
+    query->seq_end = r.qe+1;
 
     //alnse_global(index->pac, aln.a[maxi].tb, aln.a[maxi].te, l_seq, aln.a[maxi].strand==0?seq:rseq, index->mat, maxsc);
   } else {
@@ -386,8 +422,20 @@ void alnse_core_single(idx_t *index, query_t *query, aln_opt_t* aln_opt)
     
   }
  
-
+  /*   
+  ks_ksmall(aln, aln.n, aln.a, __MIN(10, aln.n));
+  for(i = 0; i < __MIN(10, aln.n); ++i) {
+    kswr_t r = alnse_extend(index->pac, aln.a[i].ref_bg, aln.a[i].ref_ed, query->l_seq, aln.a[i].strand == 0?seq:rseq, &q[aln.a[i].strand], index->mat, KSW_XSTART, maxsc);
+    fprintf(stderr, "query = %s\tpos = %u\tsc = %d\n", query->name, aln.a[i].ref_bg + r.tb, r.score);
+    print_real_coor(index->bns, aln.a[i].ref_bg+r.tb, query->l_seq);
+    
+  
+  }
+  */
+  
   //destroy
+  free(q[0]);
+  free(q[1]);
   kv_destroy(candi0);
   kv_destroy(candi1);
   kv_destroy(chain0);
@@ -571,6 +619,7 @@ int alnse_core(const opt_t *opt)
     fprintf(stderr, "[%s]:  Reload index...\n", __func__); 
     idx_t *idx = fbwt_fmidx_restore(opt->fn_index);
     fbwt_hier_idx_restore(idx, opt->fn_index);
+    //__check_search_12mer(idx);
     fprintf(stderr, "%lf sec escaped.\n", realtime()-t_real);
     t_real = realtime();
   

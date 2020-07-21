@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <assert.h>
 #include "ksort.h"
 #include "rbwt_alt.h"
 
@@ -109,7 +110,7 @@ rbwt_t *rbwt_bwt_build(int n_seqs, int n_rot, uint32_t *sorted_seqs, uint32_t *s
 {
   uint32_t i, j, k;
   uint32_t *last_sa, *cur_sa;
-  rbwt_t *rbwt = rbwt_bwt_init(n_seqs, LEN_SEQ);
+  rbwt_t *rbwt = rbwt_bwt_init(n_seqs, n_rot);
   for(j=0; j< NT_SIZE; ++j) rbwt->rbwt[0].C[j] = 0;
   for(j = 0; j < n_seqs; ++j){
     uint32_t c = sorted_seqs[j]&3;
@@ -207,7 +208,7 @@ void rbwt_bwt_to_seqs(rbwt_t *rbwt, int n_rot, uint8_t *seq_buf, uint32_t *cnt_t
     uint32_t k = i;
     for(rot=0; rot< n_rot; ++rot){
       uint8_t c = __get_bwt(rbwt->rbwt[rot].bwt, k); 
-      seq[LEN_SEQ-1-rot] = c; 
+      seq[n_rot-1-rot] = c; 
       uint32_t occ = rbwt_occ(rbwt, rot, k, c, cnt_table);
 #ifdef DEBUG  
       uint32_t occ1 = __dna_count2(rbwt->rbwt[rot].bwt, 0, k, c, cnt_table); 
@@ -218,7 +219,7 @@ void rbwt_bwt_to_seqs(rbwt_t *rbwt, int n_rot, uint8_t *seq_buf, uint32_t *cnt_t
 #endif
       k = rbwt->rbwt[rot].C[c] + occ;
     }
-    memcpy(seq_buf+i*16, seq, 16); 
+    memcpy(seq_buf+i*n_rot, seq, n_rot); 
   }    
 
   return;
@@ -235,15 +236,31 @@ uint32_t rbwt_seq_rank(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, int rot, ui
 
   return k;
 }
+uint32_t rbwt_seq_print(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, uint32_t i)
+{
+  uint32_t k = i;
+  int rot = 0;
+  uint8_t seq[16];
+  while(rot < n_rot) {
+    uint8_t c = __get_bwt(rbwt->rbwt[rot].bwt, k);
+    seq[n_rot-1-rot] = c;
+    k = rbwt->rbwt[rot].C[c] + rbwt_occ(rbwt, rot, k, c, cnt_table);
+    rot++; 
+  }
+  for(rot =0; rot < n_rot; ++rot) fprintf(stderr, "%d ", seq[rot]); 
+  fprintf(stderr, "\n");
+  return k;
+}
 
 
 uint32_t rbwt_exact_match(rbwt_t *rbwt, int n_rot, uint32_t *cnt_table, int l_seq, uint8_t *seq, uint32_t *k, uint32_t *l)
 {
+  assert(n_rot == l_seq);
   int i, rot;
   rot = 0; 
   uint32_t k0 = *k, l0 = *l;
   while(k0 < l0 && rot < n_rot) {
-    uint8_t c = seq[l_seq-1-rot];
+    uint8_t c = seq[n_rot-1-rot];
     if(c > 3) return 0;
     k0 = rbwt->rbwt[rot].C[c] + rbwt_occ(rbwt, rot, k0, c, cnt_table);
     l0 = rbwt->rbwt[rot].C[c] + rbwt_occ(rbwt, rot, l0, c, cnt_table);

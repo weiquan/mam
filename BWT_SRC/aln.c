@@ -99,8 +99,9 @@ int usage()
     fprintf(stderr, "\n"); 
     return EXIT_SUCCESS;
 }
-const char * short_options = "t:n:hpa:b:g:em:s:l:cdr:vM:O:E:X:";
+const char * short_options = "k:t:n:hpa:b:g:em:s:l:cdr:vM:O:E:X:";
 struct option long_options[] = {
+    { "init_len",     1,   NULL,    'k'   },
     { "threads",     1,   NULL,    't'   },
     { "num",     1,   NULL,    'n' },
     { "help",     0,   NULL,    'h'   },
@@ -138,6 +139,9 @@ int opt_parse(int argc, char *argv[], opt_t* opt){
     while((c = getopt_long(argc, argv, short_options, long_options, &option_index))>=0)
     {
         switch(c){
+            case 'k':
+                opt->l_seed = atoi(optarg);
+                break;
             case 't':
                 opt->n_threads = atoi(optarg);
                 break;
@@ -212,7 +216,7 @@ int opt_parse(int argc, char *argv[], opt_t* opt){
     opt->fn_index = argv[optind++];
     opt->fn_read1 = argv[optind++];
     if(opt->se != 1) opt->fn_read2 = argv[optind++];   
-    opt->l_seed = 20;
+    //opt->l_seed = 20;
     if(opt->l_overlap <= 0) opt->l_overlap = opt->l_seed/2;
 
 
@@ -230,6 +234,7 @@ void opt_log(const opt_t *opt){
     fprintf(stderr, "Rg_id:             %s\n", opt->rg_id);
     fprintf(stderr, "Index prefix:      %s\n", opt->fn_index);
     fprintf(stderr, "Kmer length:       %d\n", opt->l_seed);
+    fprintf(stderr, "Kmer shift:        %d\n", opt->l_overlap);
     if(opt->se) {
     fprintf(stderr, "SE/PE:             Single end.\n");
     fprintf(stderr, "Read file name:    %s\n", opt->fn_read1);
